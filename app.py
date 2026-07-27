@@ -49,7 +49,7 @@ with tab1:
 
     st.divider()
 
-    # 구역 2: 발전 가정량 (요청하신 항목 및 순서 재배치 반영)
+    # 구역 2: 발전 가정량
     st.markdown("### 🔹 발전 가정량")
     col3, col4 = st.columns(2)
     with col3:
@@ -72,11 +72,23 @@ with tab1:
 
     st.divider()
     
-    # 구역 3: 수익 가정
+    # 구역 3: 수익 가정 (수익단가 입력 및 예상 전력판매수익 자동 산출 연동)
     st.markdown("### 🔹 수익 가정")
-    col5, _ = st.columns(2)
+    col5, col6 = st.columns(2)
     with col5:
         price_per_kwh = st.number_input("전력 판매단가 (원/kWh)", value=150.0, format="%.2f")
+    with col6:
+        # 예상 전력판매수익 산출 (기준 발전량 × 단가, 1년차 발전량 × 단가)
+        base_annual_revenue = base_annual_gen * price_per_kwh
+        first_year_revenue = first_year_gen * price_per_kwh
+        
+        st.markdown(f"**예상 전력판매수익 (기준)**")
+        st.markdown(f"### `{base_annual_revenue:,.0f} 원`")
+        st.caption("연간 기준 발전량 × 전력 판매단가")
+        
+        st.markdown(f"**1년차 예상 전력판매수익**")
+        st.markdown(f"### `{first_year_revenue:,.0f} 원`")
+        st.caption("1년차 예상 발전량 × 전력 판매단가")
 
 with tab2:
     st.subheader("🏢 공유재산(부지) 도유지 대부료 산정 (다중 필지 고려)")
@@ -154,7 +166,6 @@ cum_cf = -investment
 cum_dcf = -investment
 
 for year in range(1, int(years) + 1):
-    # 매년 발전량 산출 (1년차 발전량에 연간 효율 감소율 적용 후 십의자리 반올림)
     gen = round(first_year_gen * ((1 - degradation) ** (year - 1)), -1)
     revenue = gen * price_per_kwh
     current_op_cost = initial_op_cost * ((1 + inflation_rate) ** (year - 1))
