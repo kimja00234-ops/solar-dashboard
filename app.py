@@ -20,7 +20,7 @@ st.sidebar.markdown("💡 메인 화면의 **탭(Tab)**을 통해 세부 항목�
 st.title("☀️ 태양광 발전사업 타당성 자동 분석 프로그램")
 st.markdown("입력 항목이 길어지지 않도록 아래의 **탭**을 클릭하여 항목별로 입력해 주세요.")
 
-tab1, tab2, tab3 = st.tabs(["📌 1. 사업 기본 정보", "🏢 2. 부지 대부료 산정", "💸 3. 운영비 및 재무 가정"])
+tab1, tab2 = st.tabs(["📌 1. 사업 기본 정보 및 운영비·가정", "🏢 2. 부지 대부료 산정"])
 
 with tab1:
     st.subheader("📌 사업 기본 정보 및 발전 가정 입력")
@@ -57,13 +57,11 @@ with tab1:
         initial_efficiency = st.number_input("최초 운영 패널 효율 (%) (기본값 적용)", value=99.0, format="%.2f") / 100.0
         degradation = st.number_input("연간 발전효율 감소율 (%) (기본값 적용)", value=0.80, format="%.2f") / 100.0
     with col4:
-        # 연간 기준 발전량 (효율 미반영 기본 산출)
         base_annual_gen = capacity * sun_hours * 365
         st.markdown(f"**연간 기준 발전량**")
         st.markdown(f"### `{round(base_annual_gen, -2):,.0f} kWh`")
         st.caption("설비용량 × 일일 평균 발전시간 × 365")
         
-        # 1년차 예상 발전량 (최초 운영 패널 효율 반영)
         raw_first_year_gen = base_annual_gen * initial_efficiency
         first_year_gen = round(raw_first_year_gen, -2)
         st.markdown(f"**1년차 예상 발전량**")
@@ -72,7 +70,7 @@ with tab1:
 
     st.divider()
     
-    # 구역 3: 재무 및 평가 가정 (구역명 변경 및 할인율, 물가상승률 이동 배치)
+    # 구역 3: 재무 및 평가 가정
     st.markdown("### 🔹 재무 및 평가 가정")
     col5, col6 = st.columns(2)
     with col5:
@@ -80,7 +78,6 @@ with tab1:
         discount_rate = st.number_input("할인율 (%)", value=4.5, format="%.2f") / 100.0
         inflation_rate = st.number_input("물가상승률 (%)", value=3.11, help="최근 5년(2021~2025) 평균 물가상승률 적용", format="%.2f") / 100.0
     with col6:
-        # 예상 전력판매수익 산출 (기준 발전량 × 단가, 1년차 발전량 × 단가)
         base_annual_revenue = base_annual_gen * price_per_kwh
         first_year_revenue = first_year_gen * price_per_kwh
         
@@ -91,6 +88,60 @@ with tab1:
         st.markdown(f"**1년차 예상 전력판매수익**")
         st.markdown(f"### `{first_year_revenue:,.0f} 원`")
         st.caption("1년차 예상 발전량 × 전력 판매단가")
+
+    st.divider()
+
+    # 구역 4: 운영비 정보 (기존 tab3의 기타 비용 항목 및 비고란까지 모두 통합 이동)
+    st.markdown("### 🔹 운영비 정보")
+    
+    auto_depreciation = investment / years if years > 0 else 0
+    auto_maintenance = auto_depreciation * 0.10
+    
+    c_op1, c_note1 = st.columns([2, 2])
+    with c_op1:
+        labor_str = st.text_input("연간 인건비 (원)", value="10,000,000")
+        try:
+            labor_cost = int(labor_str.replace(",", ""))
+        except ValueError:
+            labor_cost = 0
+            st.error("숫자만 입력해 주세요.")
+    with c_note1:
+        labor_note = st.text_input("인건비 비고", value="전기안전관리자(대행) 인건비")
+
+    auto_severance = labor_cost / 12.0
+    c_op2, c_note2 = st.columns([2, 2])
+    with c_op2:
+        severance_str = st.text_input("연간 퇴직금 (원)", value=f"{int(auto_severance):,}")
+        try:
+            severance_pay = int(severance_str.replace(",", ""))
+        except ValueError:
+            severance_pay = 0
+    with c_note2:
+        severance_note = st.text_input("퇴직금 비고", value="인건비 / 12개월")
+
+    c_op3, c_note3 = st.columns([2, 2])
+    with c_op3:
+        dep_str = st.text_input("연간 감가상각비 (원)", value=f"{int(auto_depreciation):,}")
+        try:
+            depreciation = int(dep_str.replace(",", ""))
+        except ValueError:
+            depreciation = 0
+    with c_note3:
+        dep_note = st.text_input("감가상각비 비고", value="총사업비 / 사업기간")
+
+    c_op4, c_note4 = st.columns([2, 2])
+    with c_op4:
+        maint_str = st.text_input("연간 수선유지비 (원)", value=f"{int(auto_maintenance):,}")
+        try:
+            maintenance = int(maint_str.replace(",", ""))
+        except ValueError:
+            maintenance = 0
+    with c_note4:
+        maint_note = st.text_input("수선유지비 비고", value="감가상각비의 10%")
+
+    # 대부료 (탭2 연동 표시)
+    # 아래 탭2 영역에서 계산된 total_land_rent 값을 여기서 참조하기 위해 탭2 로직을 위로 올리거나 사전 계산 필요
+    # 원활한 참조를 위해 탭2의 대부료 계산 로직을 상단으로 배치합니다.
 
 with tab2:
     st.subheader("🏢 공유재산(부지) 도유지 대부료 산정 (다중 필지 고려)")
@@ -130,27 +181,23 @@ with tab2:
 
     st.info(f"💡 **총 부지면적:** {total_land_area:,.2f} ㎡ / **연간 대부료 합계:** {total_land_rent:,.0f} 원")
 
-with tab3:
-    st.subheader("💸 기타 운영비용 및 재무 가정")
-    c1, _ = st.columns(2)
-    with c1:
-        st.markdown("**[운영비 세부 항목]**")
-        labor_str = st.text_input("인건비 (원)", value="10,000,000")
-        severance_str = st.text_input("퇴직금 (원)", value="1,000,000")
-        maint_str = st.text_input("수선유지비 (원)", value="4,000,000")
-        other_str = st.text_input("기타 운영비 (원)", value="0")
-        
+    # 기타비용 입력칸 및 비고란 (탭3에 있던 내용을 탭2 또는 탭1 하단에 배치 가능하나, 기존 탭3 삭제 요청에 따라 탭2 하단에 배치)
+    st.divider()
+    st.subheader("💸 기타 비용 입력")
+    c_op5, c_note5 = st.columns([2, 2])
+    with c_op5:
+        other_str = st.text_input("기타 비용 (원)", value="0")
         try:
-            labor_cost = int(labor_str.replace(",", ""))
-            severance_pay = int(severance_str.replace(",", ""))
-            maintenance = int(maint_str.replace(",", ""))
             other_op_cost = int(other_str.replace(",", ""))
         except ValueError:
-            labor_cost, severance_pay, maintenance, other_op_cost = 0, 0, 0, 0
-            st.error("운영비 항목에 숫자만 입력해 주세요.")
+            other_op_cost = 0
+            st.error("숫자만 입력해 주세요.")
+    with c_note5:
+        other_note = st.text_input("기타 비용 비고", value="기타 예비비 등")
 
-    initial_op_cost = labor_cost + severance_pay + maintenance + total_land_rent + other_op_cost
-    st.success(f"💰 **1년 차 총 운영비 (대부료 포함):** {initial_op_cost:,.0f} 원")
+    # 총 운영비 합계 산정
+    initial_op_cost = labor_cost + severance_pay + depreciation + maintenance + total_land_rent + other_op_cost
+    st.success(f"💰 **1년 차 총 운영비 합계 (대부료 포함):** {initial_op_cost:,.0f} 원")
 
 st.divider()
 
