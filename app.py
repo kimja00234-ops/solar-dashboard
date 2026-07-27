@@ -49,20 +49,26 @@ with tab1:
 
     st.divider()
 
-    # 구역 2: 발전 가정량 (요청하신 항목 및 순서 반영)
+    # 구역 2: 발전 가정량 (요청하신 항목 및 순서 재배치 반영)
     st.markdown("### 🔹 발전 가정량")
     col3, col4 = st.columns(2)
     with col3:
         sun_hours = st.number_input("일일 평균 발전시간 (시간)", value=3.5, format="%.2f")
         initial_efficiency = st.number_input("최초 운영 패널 효율 (%) (기본값 적용)", value=99.0, format="%.2f") / 100.0
-    with col4:
-        # 연간 예상 발전량 자동 산출 (설비용량 × 일일 평균 발전시간 × 365)
-        auto_first_year_gen = capacity * sun_hours * 365
-        st.markdown(f"**연간 예상 발전량 (1년 차)**")
-        st.markdown(f"### `{auto_first_year_gen:,.2f} kWh`")
-        st.caption("설비용량 × 일일 평균 발전시간 × 365 자동 산출")
-        
         degradation = st.number_input("연간 발전효율 감소율 (%) (기본값 적용)", value=0.80, format="%.2f") / 100.0
+    with col4:
+        # 연간 기준 발전량 (효율 미반영 기본 산출)
+        base_annual_gen = capacity * sun_hours * 365
+        st.markdown(f"**연간 기준 발전량**")
+        st.markdown(f"### `{round(base_annual_gen, -1):,.0f} kWh`")
+        st.caption("설비용량 × 일일 평균 발전시간 × 365 (십의 자리 반올림)")
+        
+        # 1년차 예상 발전량 (최초 운영 패널 효율 반영)
+        raw_first_year_gen = base_annual_gen * initial_efficiency
+        first_year_gen = round(raw_first_year_gen, -1)
+        st.markdown(f"**1년차 예상 발전량**")
+        st.markdown(f"### `{first_year_gen:,.0f} kWh`")
+        st.caption("연간 기준 발전량 × 최초 운영 패널 효율 (십의 자리 반올림)")
 
     st.divider()
     
@@ -142,15 +148,14 @@ st.divider()
 # ---------------------------------------------------------
 # 공통 계산 엔진 (현금흐름 및 지표 산출)
 # ---------------------------------------------------------
-# 1년 차 발전량 산출 시 최초 운영 패널 효율 반영
-first_year_gen = auto_first_year_gen * initial_efficiency
 cash_flows = [-investment]
 data = []
 cum_cf = -investment
 cum_dcf = -investment
 
 for year in range(1, int(years) + 1):
-    gen = first_year_gen * ((1 - degradation) ** (year - 1))
+    # 매년 발전량 산출 (1년차 발전량에 연간 효율 감소율 적용 후 십의자리 반올림)
+    gen = round(first_year_gen * ((1 - degradation) ** (year - 1)), -1)
     revenue = gen * price_per_kwh
     current_op_cost = initial_op_cost * ((1 + inflation_rate) ** (year - 1))
     net_cf = revenue - current_op_cost
@@ -197,7 +202,7 @@ discounted_payback = calculate_payback(df, "할인현금흐름", "누적할인�
 if page == "1. 사업성 종합 분석":
     st.title("☀️ 태양광 발전사업 타당성 종합 분석")
     st.markdown(f"### 📍 {project_name} ({location})")
-    st.markdown(f"**1년 차 예상 발전량:** `{first_year_gen:,.2f} kWh` (설비용량 {capacity}kW × 일일 발전시간 {sun_hours}시간 × 365일 × 최초 효율 {initial_efficiency*100}%)")
+    st.markdown(f"**1년차 예상 발전량:** `{first_year_gen:,.0f} kWh` (연간 기준 발전량 × 최초 운영 패널 효율, 십의 자리 반올림)")
     st.divider()
 
     st.subheader("🏢 다중 필지 대부료 산정 내역")
@@ -224,7 +229,7 @@ if page == "1. 사업성 종합 분석":
     st.divider()
     st.subheader("📋 연도별 상세 데이터")
     st.dataframe(df.style.format({
-        "발전량(kWh)": "{:,.2f}",
+        "발전량(kWh)": "{:,.0f}",
         "수익(매출액)": "{:,.0f}",
         "지출(운영비)": "{:,.0f}",
         "순수익": "{:,.0f}",
