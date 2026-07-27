@@ -34,6 +34,7 @@ with tab1:
         capacity = st.number_input("설비용량 (kW)", value=986.21, format="%.2f")
     with col2:
         investment = st.number_input("총사업비 (원)", value=1972000000, step=10000000, format="%d")
+        st.caption(f"👉 입력된 총사업비: **{investment:,.0f} 원**")
         years = st.number_input("사업기간 (년)", value=20, step=1)
 
     st.divider()
@@ -64,6 +65,7 @@ with tab2:
             p_area = st.number_input(f"필지 {i+1} 면적 (㎡)", value=8000.0 if i==0 else 3557.0, key=f"area_{i}", format="%.2f")
         with c3:
             p_price = st.number_input(f"필지 {i+1} 공시지가 (원/㎡)", value=50000.0 if i==0 else 45000.0, key=f"price_{i}", format="%.2f")
+            st.caption(f"공시지가: {p_price:,.0f} 원")
         with c4:
             p_rate = st.number_input(f"필지 {i+1} 대부요율 (%)", value=5.0, key=f"rate_{i}", format="%.2f") / 100.0
         
