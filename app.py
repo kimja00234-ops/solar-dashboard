@@ -91,54 +91,25 @@ with tab1:
 
     st.divider()
 
-    # 구역 4: 운영비 정보 (표 형태 디자인 적용)
+    # 구역 4: 운영비 정보 (표 형태 디자인 적용 및 숫자형 입력으로 전환하여 원단위 기호 상시 유지)
     st.markdown("### 🔹 운영비 정보")
     st.markdown("운영비 세부 항목 및 비고를 확인하고 필요한 경우 금액을 수정해 주세요.")
 
-    auto_depreciation = investment / years if years > 0 else 0
-    auto_maintenance = auto_depreciation * 0.10
+    auto_depreciation = float(investment / years) if years > 0 else 0.0
+    auto_maintenance = float(auto_depreciation * 0.10)
     
-    # 세션 상태 초기화 (입력값 유지)
-    if 'labor_val' not in st.session_state: st.session_state.labor_val = "10,000,000"
+    # 세션 상태 초기화 (숫자형 관리)
+    if 'labor_val' not in st.session_state: st.session_state.labor_val = 10000000
     if 'labor_note' not in st.session_state: st.session_state.labor_note = "전기안전관리자(대행) 인건비"
     
     if 'sev_note' not in st.session_state: st.session_state.sev_note = "인건비 / 12개월"
     if 'dep_note' not in st.session_state: st.session_state.dep_note = "총사업비 / 사업기간"
     if 'maint_note' not in st.session_state: st.session_state.maint_note = "감가상각비의 10%"
 
-    try:
-        current_labor = int(st.session_state.labor_val.replace(",", ""))
-    except ValueError:
-        current_labor = 0
-
+    current_labor = float(st.session_state.labor_val)
     auto_severance = current_labor / 12.0
 
-    # HTML/CSS를 활용한 깔끔한 표 형태 디자인 구현
-    st.markdown("""
-    <style>
-    .op-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 10px;
-        margin-bottom: 10px;
-        font-size: 15px;
-    }
-    .op-table th {
-        background-color: #f0f2f6;
-        color: #31333F;
-        padding: 10px;
-        text-align: center;
-        border: 1px solid #d1d5db;
-    }
-    .op-table td {
-        padding: 8px;
-        border: 1px solid #d1d5db;
-        vertical-align: middle;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    # Streamlit 컬럼을 이용한 인터랙티브 테이블 구성
+    # 테이블 헤더 구성
     t_col1, t_col2, t_col3 = st.columns([1.5, 2.5, 3])
     with t_col1: st.markdown("**구분**")
     with t_col2: st.markdown("**연간 금액 (원)**")
@@ -146,52 +117,45 @@ with tab1:
 
     st.divider()
 
-    # 1. 인건비
+    # 1. 인건비 (number_input 사용하여 천단위 및 원단위 표시 보장)
     r1_c1, r1_c2, r1_c3 = st.columns([1.5, 2.5, 3])
     with r1_c1: st.markdown("연간 인건비")
-    with r1_c2: st.session_state.labor_val = st.text_input("인건비 입력", value=st.session_state.labor_val, label_visibility="collapsed")
-    with r1_c3: labor_note = st.text_input("인건비 비고 입력", value=st.session_state.labor_note, label_visibility="collapsed")
+    with r1_c2: 
+        st.session_state.labor_val = st.number_input("인건비 입력", value=int(st.session_state.labor_val), step=1000000, format="%d", label_visibility="collapsed")
+    with r1_c3: 
+        labor_note = st.text_input("인건비 비고 입력", value=st.session_state.labor_note, label_visibility="collapsed")
 
-    try:
-        labor_cost = int(st.session_state.labor_val.replace(",", ""))
-    except ValueError:
-        labor_cost = 0
+    labor_cost = int(st.session_state.labor_val)
 
     # 2. 퇴직금
     r2_c1, r2_c2, r2_c3 = st.columns([1.5, 2.5, 3])
     with r2_c1: st.markdown("연간 퇴직금")
     with r2_c2: 
-        severance_val = st.text_input("퇴직금 입력", value=f"{int(auto_severance):,}", label_visibility="collapsed")
-    with r2_c3: severance_note = st.text_input("퇴직금 비고 입력", value=st.session_state.sev_note, label_visibility="collapsed")
+        severance_val = st.number_input("퇴직금 입력", value=int(auto_severance), step=100000, format="%d", label_visibility="collapsed")
+    with r2_c3: 
+        severance_note = st.text_input("퇴직금 비고 입력", value=st.session_state.sev_note, label_visibility="collapsed")
 
-    try:
-        severance_pay = int(severance_val.replace(",", ""))
-    except ValueError:
-        severance_pay = 0
+    severance_pay = int(severance_val)
 
     # 3. 감가상각비
     r3_c1, r3_c2, r3_c3 = st.columns([1.5, 2.5, 3])
     with r3_c1: st.markdown("연간 감가상각비")
     with r3_c2: 
-        dep_val = st.text_input("감가상각비 입력", value=f"{int(auto_depreciation):,}", label_visibility="collapsed")
-    with r3_c3: dep_note = st.text_input("감가상각비 비고 입력", value=st.session_state.dep_note, label_visibility="collapsed")
+        dep_val = st.number_input("감가상각비 입력", value=int(auto_depreciation), step=1000000, format="%d", label_visibility="collapsed")
+    with r3_c3: 
+        dep_note = st.text_input("감가상각비 비고 입력", value=st.session_state.dep_note, label_visibility="collapsed")
 
-    try:
-        depreciation = int(dep_val.replace(",", ""))
-    except ValueError:
-        depreciation = 0
+    depreciation = int(dep_val)
 
     # 4. 수선유지비
     r4_c1, r4_c2, r4_c3 = st.columns([1.5, 2.5, 3])
     with r4_c1: st.markdown("연간 수선유지비")
     with r4_c2: 
-        maint_val = st.text_input("수선유지비 입력", value=f"{int(auto_maintenance):,}", label_visibility="collapsed")
-    with r4_c3: maint_note = st.text_input("수선유지비 비고 입력", value=st.session_state.maint_note, label_visibility="collapsed")
+        maint_val = st.number_input("수선유지비 입력", value=int(auto_maintenance), step=500000, format="%d", label_visibility="collapsed")
+    with r4_c3: 
+        maint_note = st.text_input("수선유지비 비고 입력", value=st.session_state.maint_note, label_visibility="collapsed")
 
-    try:
-        maintenance = int(maint_val.replace(",", ""))
-    except ValueError:
-        maintenance = 0
+    maintenance = int(maint_val)
 
 with tab2:
     st.subheader("🏢 공유재산(부지) 도유지 대부료 산정 (다중 필지 고려)")
@@ -235,12 +199,8 @@ with tab2:
     st.subheader("💸 기타 비용 입력")
     c_op5, c_note5 = st.columns([2, 2])
     with c_op5:
-        other_str = st.text_input("기타 비용 (원)", value="0")
-        try:
-            other_op_cost = int(other_str.replace(",", ""))
-        except ValueError:
-            other_op_cost = 0
-            st.error("숫자만 입력해 주세요.")
+        other_val = st.number_input("기타 비용 입력 (원)", value=0, step=500000, format="%d")
+        other_op_cost = int(other_val)
     with c_note5:
         other_note = st.text_input("기타 비용 비고", value="기타 예비비 등")
 
