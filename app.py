@@ -23,16 +23,14 @@ st.markdown("입력 항목이 길어지지 않도록 아래의 **탭**을 클릭
 tab1, tab2, tab3 = st.tabs(["📌 1. 사업 기본 정보", "🏢 2. 부지 대부료 산정", "💸 3. 운영비 및 재무 가정"])
 
 with tab1:
-    st.subheader("📌 사업 기본 정보 및 발전 수익 가정 입력")
+    st.subheader("📌 사업 기본 정보 및 발전 가정 입력")
     
-    # 구역 1: 사업 기본 정보 (요청하신 순서 및 짝꿍 배치 반영)
+    # 구역 1: 사업 기본 정보
     st.markdown("### 🔹 사업 기본 정보")
     col1, col2 = st.columns(2)
     with col1:
         project_name = st.text_input("사업명", value="춘천 창촌리 태양광발전사업")
         capacity = st.number_input("설비용량 (kW)", value=986.21, format="%.2f")
-        
-        # 부지면적 연동을 위해 tab2의 첫 번째 필지 면적 값을 가져오거나 기본 부지면적 설정
         land_area_str = st.text_input("부지면적 (㎡)", value="11,557")
         try:
             land_area = float(land_area_str.replace(",", ""))
@@ -41,26 +39,38 @@ with tab1:
 
     with col2:
         location = st.text_input("위치", value="강원특별자치도 춘천시 남산면 창촌리")
-        
         investment_str = st.text_input("총사업비 (원)", value="1,972,000,000")
         try:
             investment = int(investment_str.replace(",", ""))
         except ValueError:
             investment = 0
             st.error("숫자만 입력해 주세요.")
-            
         years = st.number_input("사업기간 (년)", value=20, step=1)
 
     st.divider()
 
-    # 구역 2: 발전 및 수익 가정
-    st.markdown("### 🔹 발전 및 수익 가정")
+    # 구역 2: 발전 가정량 (요청하신 항목 및 순서 반영)
+    st.markdown("### 🔹 발전 가정량")
     col3, col4 = st.columns(2)
     with col3:
-        price_per_kwh = st.number_input("전력 판매단가 (원/kWh)", value=150.0, format="%.2f")
+        sun_hours = st.number_input("일일 평균 발전시간 (시간)", value=3.5, format="%.2f")
         initial_efficiency = st.number_input("최초 운영 패널 효율 (%) (기본값 적용)", value=99.0, format="%.2f") / 100.0
     with col4:
+        # 연간 예상 발전량 자동 산출 (설비용량 × 일일 평균 발전시간 × 365)
+        auto_first_year_gen = capacity * sun_hours * 365
+        st.markdown(f"**연간 예상 발전량 (1년 차)**")
+        st.markdown(f"### `{auto_first_year_gen:,.2f} kWh`")
+        st.caption("설비용량 × 일일 평균 발전시간 × 365 자동 산출")
+        
         degradation = st.number_input("연간 발전효율 감소율 (%) (기본값 적용)", value=0.80, format="%.2f") / 100.0
+
+    st.divider()
+    
+    # 구역 3: 수익 가정
+    st.markdown("### 🔹 수익 가정")
+    col5, _ = st.columns(2)
+    with col5:
+        price_per_kwh = st.number_input("전력 판매단가 (원/kWh)", value=150.0, format="%.2f")
 
 with tab2:
     st.subheader("🏢 공유재산(부지) 도유지 대부료 산정 (다중 필지 고려)")
@@ -105,7 +115,6 @@ with tab3:
     c1, c2 = st.columns(2)
     with c1:
         st.markdown("**[운영비 세부 항목]**")
-        
         labor_str = st.text_input("인건비 (원)", value="10,000,000")
         severance_str = st.text_input("퇴직금 (원)", value="1,000,000")
         maint_str = st.text_input("수선유지비 (원)", value="4,000,000")
@@ -133,7 +142,8 @@ st.divider()
 # ---------------------------------------------------------
 # 공통 계산 엔진 (현금흐름 및 지표 산출)
 # ---------------------------------------------------------
-first_year_gen = capacity * 3.5 * 365 * initial_efficiency
+# 1년 차 발전량 산출 시 최초 운영 패널 효율 반영
+first_year_gen = auto_first_year_gen * initial_efficiency
 cash_flows = [-investment]
 data = []
 cum_cf = -investment
@@ -187,7 +197,7 @@ discounted_payback = calculate_payback(df, "할인현금흐름", "누적할인�
 if page == "1. 사업성 종합 분석":
     st.title("☀️ 태양광 발전사업 타당성 종합 분석")
     st.markdown(f"### 📍 {project_name} ({location})")
-    st.markdown(f"**1년 차 예상 발전량:** `{first_year_gen:,.0f} kWh` (설비용량 {capacity}kW × 3.5시간 × 365일)")
+    st.markdown(f"**1년 차 예상 발전량:** `{first_year_gen:,.2f} kWh` (설비용량 {capacity}kW × 일일 발전시간 {sun_hours}시간 × 365일 × 최초 효율 {initial_efficiency*100}%)")
     st.divider()
 
     st.subheader("🏢 다중 필지 대부료 산정 내역")
@@ -214,7 +224,7 @@ if page == "1. 사업성 종합 분석":
     st.divider()
     st.subheader("📋 연도별 상세 데이터")
     st.dataframe(df.style.format({
-        "발전량(kWh)": "{:,.0f}",
+        "발전량(kWh)": "{:,.2f}",
         "수익(매출액)": "{:,.0f}",
         "지출(운영비)": "{:,.0f}",
         "순수익": "{:,.0f}",
