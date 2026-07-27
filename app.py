@@ -12,15 +12,15 @@ st.set_page_config(page_title="태양광 발전사업 통합 대시보드", layo
 st.sidebar.title("☀️ 태양광 발전사업 분석")
 page = st.sidebar.radio("이동할 대시보드 선택", ["1. 사업성 종합 분석", "2. 수익·지출·순수익 시각화"])
 st.sidebar.divider()
-st.sidebar.markdown("💡 메인 화면의 **탭(Tab)**을 통해 세부 항목을 각각 입력하실 수 있습니다.")
+st.sidebar.markdown("💡 메인 화면의 **탭(Tab)**을 통해 입력과 분석 결과를 각각 확인하실 수 있습니다.")
 
 # ---------------------------------------------------------
-# 메인 화면: 탭(Tab) 구조를 이용한 입력 영역 분리
+# 메인 화면: 탭(Tab) 구조를 이용한 입력 영역 및 대시보드 분리
 # ---------------------------------------------------------
 st.title("☀️ 태양광 발전사업 타당성 자동 분석 프로그램")
-st.markdown("입력 항목이 길어지지 않도록 아래의 **탭**을 클릭하여 항목별로 입력해 주세요.")
+st.markdown("입력 항목과 분석 결과를 아래의 **탭**을 통해 각각 확인해 주세요.")
 
-tab1, tab2 = st.tabs(["📌 1. 사업 기본 정보 및 운영비·가정", "🏢 2. 부지 대부료 산정"])
+tab1, tab2, tab3 = st.tabs(["📌 1. 사업 기본 정보 및 운영비·가정 입력", "🏢 2. 부지 대부료 산정", "📊 3. 사업성 분석 대시보드"])
 
 with tab1:
     st.subheader("📌 사업 기본 정보 및 발전 가정 입력")
@@ -91,7 +91,7 @@ with tab1:
 
     st.divider()
 
-    # 구역 4: 운영비 정보 (기존 tab3의 기타 비용 항목 및 비고란까지 모두 통합 이동)
+    # 구역 4: 운영비 정보
     st.markdown("### 🔹 운영비 정보")
     
     auto_depreciation = investment / years if years > 0 else 0
@@ -139,10 +139,6 @@ with tab1:
     with c_note4:
         maint_note = st.text_input("수선유지비 비고", value="감가상각비의 10%")
 
-    # 대부료 (탭2 연동 표시)
-    # 아래 탭2 영역에서 계산된 total_land_rent 값을 여기서 참조하기 위해 탭2 로직을 위로 올리거나 사전 계산 필요
-    # 원활한 참조를 위해 탭2의 대부료 계산 로직을 상단으로 배치합니다.
-
 with tab2:
     st.subheader("🏢 공유재산(부지) 도유지 대부료 산정 (다중 필지 고려)")
     num_parcels = st.number_input("대부 필지 수", min_value=1, max_value=10, value=2, step=1)
@@ -181,7 +177,6 @@ with tab2:
 
     st.info(f"💡 **총 부지면적:** {total_land_area:,.2f} ㎡ / **연간 대부료 합계:** {total_land_rent:,.0f} 원")
 
-    # 기타비용 입력칸 및 비고란 (탭3에 있던 내용을 탭2 또는 탭1 하단에 배치 가능하나, 기존 탭3 삭제 요청에 따라 탭2 하단에 배치)
     st.divider()
     st.subheader("💸 기타 비용 입력")
     c_op5, c_note5 = st.columns([2, 2])
@@ -198,8 +193,6 @@ with tab2:
     # 총 운영비 합계 산정
     initial_op_cost = labor_cost + severance_pay + depreciation + maintenance + total_land_rent + other_op_cost
     st.success(f"💰 **1년 차 총 운영비 합계 (대부료 포함):** {initial_op_cost:,.0f} 원")
-
-st.divider()
 
 # ---------------------------------------------------------
 # 공통 계산 엔진 (현금흐름 및 지표 산출)
@@ -252,10 +245,10 @@ simple_payback = calculate_payback(df, "순수익", "누적현금흐름")
 discounted_payback = calculate_payback(df, "할인현금흐름", "누적할인현금흐름")
 
 # ---------------------------------------------------------
-# 페이지 1: 사업성 종합 분석 대시보드
+# Tab 3: 사업성 분석 대시보드 (별도 탭으로 이동)
 # ---------------------------------------------------------
-if page == "1. 사업성 종합 분석":
-    st.title("☀️ 태양광 발전사업 타당성 종합 분석")
+with tab3:
+    st.subheader("📊 사업성 분석 결과 대시보드")
     st.markdown(f"### 📍 {project_name} ({location})")
     st.markdown(f"**1년차 예상 발전량:** `{first_year_gen:,.0f} kWh` (연간 기준 발전량 × 최초 운영 패널 효율, 십의 자리 반올림)")
     st.divider()
@@ -268,7 +261,7 @@ if page == "1. 사업성 종합 분석":
         "대부요율(%)": "{:.2f}%",
         "연간 대부료(원)": "{:,.0f}"
     }), use_container_width=True)
-    st.markdown(f"**총 대부료 합계 (1년 차):** `{total_land_rent:,.0f} 원` (이 금액이 운영비에 자동 반영됩니다)")
+    st.markdown(f"**총 대부료 합계 (1년 차):** `{total_land_rent:,.0f} 원` (운영비에 자동 반영됨)")
     st.divider()
 
     st.subheader("💡 핵심 재무 지표")
@@ -294,9 +287,9 @@ if page == "1. 사업성 종합 분석":
     }), use_container_width=True)
 
 # ---------------------------------------------------------
-# 페이지 2: 수익·지출·순수익 시각화 대시보드
+# 페이지 2: 수익·지출·순수익 시각화 대시보드 (사이드바 선택 시)
 # ---------------------------------------------------------
-elif page == "2. 수익·지출·순수익 시각화":
+if page == "2. 수익·지출·순수익 시각화":
     st.title("📊 수익 · 지출 · 순수익 한눈에 보기")
     st.markdown("매년 발생하는 발전 수익, 대부료 및 물가상승이 반영된 지출(운영비), 그리고 최종 순수익의 흐름을 시각적으로 비교합니다.")
     st.divider()
