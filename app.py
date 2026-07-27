@@ -5,7 +5,7 @@ import numpy_financial as npf
 # 웹 페이지 기본 설정
 st.set_page_config(page_title="태양광 타당성 자동 분석기", layout="wide")
 st.title("☀️ 태양광 발전사업 타당성 자동 분석 프로그램")
-st.markdown("기본 정보와 단가를 입력하면 NPV, IRR, PI 및 회수기간을 자동으로 계산합니다.")
+st.markdown("기본 정보와 세부 운영비용을 입력하면 NPV, IRR, PI 및 회수기간을 자동으로 계산합니다.")
 
 # ---------------------------------------------------------
 # 1. 사이드바 - 사용자 입력창 구성
@@ -22,15 +22,34 @@ price_per_kwh = st.sidebar.number_input("전력 판매단가 (원/kWh)", value=1
 initial_efficiency = st.sidebar.number_input("최초 운영 패널 효율 (%)", value=99.0) / 100.0
 degradation = st.sidebar.number_input("연간 발전효율 감소율 (%)", value=0.80, format="%.2f") / 100.0
 
-st.sidebar.header("3. 재무 가정")
+st.sidebar.header("3. 세부 운영비용 항목 (1년 차 기준)")
+st.markdown(
+    """
+    <style>
+    [data-testid="stSidebar"] .stMarkdown p {
+        font-size: 14px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+labor_cost = st.sidebar.number_input("인건비 (원)", value=10000000, step=1000000)
+severance_pay = st.sidebar.number_input("퇴직금 (원)", value=1000000, step=100000)
+maintenance = st.sidebar.number_input("수선유지비 (원)", value=4000000, step=500000)
+land_rent = st.sidebar.number_input("도유지 대부료 (원)", value=0, step=500000)
+other_op_cost = st.sidebar.number_input("기타 운영비 (원)", value=0, step=500000)
+
+# 세부 항목 자동 합산
+initial_op_cost = labor_cost + severance_pay + maintenance + land_rent + other_op_cost
+st.sidebar.info(f"💡 **1년 차 총 초기 운영비 합계:** {initial_op_cost:,.0f} 원")
+
+st.sidebar.header("4. 재무 가정")
 inflation_rate = st.sidebar.number_input("물가상승률 (%)", value=3.11, help="최근 5년(2021~2025) 평균 물가상승률 적용") / 100.0
-op_cost = st.sidebar.number_input("초기 연간 운영비 (원)", value=15000000, step=1000000, help="매년 설정한 물가상승률만큼 운영비가 증가합니다.")
 discount_rate = st.sidebar.number_input("할인율 (%)", value=4.5) / 100.0
 
 # ---------------------------------------------------------
 # 2. 발전량 및 현금흐름 자동 계산 로직
 # ---------------------------------------------------------
-# 1년 차 발전량 = 설비용량 x 일발전시간(3.5) x 365 x 최초운영효율
 first_year_gen = capacity * 3.5 * 365 * initial_efficiency
 
 cash_flows = [-investment]
@@ -45,8 +64,8 @@ for year in range(1, int(years) + 1):
     # 매출액 계산
     revenue = gen * price_per_kwh
     
-    # 당해 연도 운영비 계산 (초기 운영비에 물가상승률 복리 적용)
-    current_op_cost = op_cost * ((1 + inflation_rate) ** (year - 1))
+    # 당해 연도 운영비 계산 (초기 총 운영비에 물가상승률 복리 적용)
+    current_op_cost = initial_op_cost * ((1 + inflation_rate) ** (year - 1))
     
     # 순현금흐름 계산
     net_cf = revenue - current_op_cost
