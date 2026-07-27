@@ -79,7 +79,7 @@ with tab2:
     }), use_container_width=True)
 
 # ---------------------------------------------------------
-# Tab 1: 사업 기본 정보 및 운영비 입력
+# Tab 1: 사업 기본 정보 및 운영비 입력 (기존 구조 완벽 유지)
 # ---------------------------------------------------------
 with tab1:
     st.subheader("📌 사업 기본 정보 및 발전 가정 입력")
@@ -121,14 +121,19 @@ with tab1:
     col3, col4 = st.columns(2)
     with col3:
         sun_hours = st.number_input("일일 평균 발전시간 (h/day)", value=3.5, format="%.2f")
-        initial_efficiency = st.number_input("최초 운영 패널 효율 (%)", value=99.0, format="%.2f") / 100.0
-        degradation = st.number_input("연간 발전효율 감소율 (%)", value=0.80, format="%.2f") / 100.0
+        initial_efficiency = st.number_input("최초 운영 패널 효율 (%) (기본값 적용)", value=99.0, format="%.2f") / 100.0
+        degradation = st.number_input("연간 발전효율 감소율 (%) (기본값 적용)", value=0.80, format="%.2f") / 100.0
     with col4:
         base_annual_gen = capacity * sun_hours * 365
+        st.markdown(f"**연간 기준 발전량**")
+        st.markdown(f"### `{round(base_annual_gen, -2):,.0f} kWh`")
+        st.caption("설비용량 × 일일 평균 발전시간 × 365")
+        
         raw_first_year_gen = base_annual_gen * initial_efficiency
         first_year_gen = round(raw_first_year_gen, -2)
         st.markdown(f"**1년차 예상 발전량**")
         st.markdown(f"### `{first_year_gen:,.0f} kWh`")
+        st.caption("연간 기준 발전량 × 최초 운영 패널 효율")
 
     st.divider()
     
@@ -137,65 +142,134 @@ with tab1:
     with col5:
         price_per_kwh = st.number_input("전력 판매단가 (원/kWh)", value=171.0, format="%.2f")
         discount_rate = st.number_input("할인율 (%)", value=4.5, format="%.2f") / 100.0
-        inflation_rate = st.number_input("물가상승률 (%)", value=3.11, format="%.2f") / 100.0
+        inflation_rate = st.number_input("물가상승률 (%)", value=3.11, help="최근 5년(2021~2025) 평균 물가상승률 적용", format="%.2f") / 100.0
     with col6:
+        base_annual_revenue = base_annual_gen * price_per_kwh
         first_year_revenue = first_year_gen * price_per_kwh
+        
+        st.markdown(f"**예상 전력판매수익 (기준)**")
+        st.markdown(f"### `{base_annual_revenue:,.0f} 원`")
+        st.caption("연간 기준 발전량 × 전력 판매단가")
+        
         st.markdown(f"**1년차 예상 전력판매수익**")
         st.markdown(f"### `{first_year_revenue:,.0f} 원`")
+        st.caption("1년차 예상 발전량 × 전력 판매단가")
 
     st.divider()
 
-    st.markdown("### 🔹 초기 운영비 설정 (1년차 기준)")
+    st.markdown("### 🔹 운영비 정보")
+    st.markdown("운영비 세부 항목 및 비고를 확인하고 필요한 경우 금액을 수정해 주세요.")
+
+    auto_depreciation = int(investment / years) if years > 0 else 0
+    auto_maintenance = int(auto_depreciation * 0.10)
+
     if 'labor_input' not in st.session_state: st.session_state.labor_input = "2,400,000"
 
     def update_labor():
         val = st.session_state.labor_widget.replace(",", "").strip()
         if val.isdigit():
-            st.session_state.labor_input = f"{int(val):,}"
+            new_labor = int(val)
+            st.session_state.labor_input = f"{new_labor:,}"
         else:
             st.session_state.labor_input = val
 
     try:
-        base_labor = int(st.session_state.labor_input.replace(",", "").strip())
+        labor_cost = int(st.session_state.labor_input.replace(",", "").strip()) if st.session_state.labor_input.replace(",", "").strip().isdigit() else 2400000
     except ValueError:
-        base_labor = 2400000
+        labor_cost = 2400000
 
-    base_severance = int(base_labor / 12)
-    base_depreciation = int(investment / years) if years > 0 else 0
-    base_maintenance = int(base_depreciation * 0.10)
-    base_land_rent = total_land_rent
+    auto_severance = int(labor_cost / 12)
+    depreciation = auto_depreciation
+    maintenance = auto_maintenance
+    land_rent_cost = total_land_rent
+
+    partial_op_cost = labor_cost + auto_severance + depreciation + maintenance + land_rent_cost
+    annual_taxable_income = first_year_revenue - partial_op_cost
+    
+    if annual_taxable_income > 0:
+        if annual_taxable_income <= 200000000:
+            calculated_tax = int(annual_taxable_income * 0.09)
+        else:
+            calculated_tax = int(200000000 * 0.09 + (annual_taxable_income - 200000000) * 0.19)
+    else:
+        calculated_tax = 0
+
+    if 'tax_initialized' not in st.session_state:
+        st.session_state.tax_input = f"{calculated_tax:,}"
+        st.session_state.tax_initialized = True
+
+    def update_tax():
+        val = st.session_state.tax_widget.replace(",", "").strip()
+        if val.isdigit():
+            st.session_state.tax_input = f"{int(val):,}"
+        else:
+            st.session_state.tax_input = val
+
+    if 'labor_note' not in st.session_state: st.session_state.labor_note = "전기안전관리자(대행) 인건비"
+    if 'sev_note' not in st.session_state: st.session_state.sev_note = "인건비 / 12개월"
+    if 'dep_note' not in st.session_state: st.session_state.dep_note = "총사업비 / 사업기간"
+    if 'maint_note' not in st.session_state: st.session_state.maint_note = "감가상각비의 10%"
+    if 'rent_note' not in st.session_state: st.session_state.rent_note = "공유재산 대부료 산정 (대부요율 5%, 경감률 50% 적용)"
+    if 'tax_note' not in st.session_state: st.session_state.tax_note = "세전 순이익 기준 법인세 자동 산정 (중소기업 세율 반영)"
 
     t_col1, t_col2, t_col3 = st.columns([1.5, 2.5, 3])
     with t_col1: st.markdown("**구분**")
-    with t_col2: st.markdown("**1년차 기준금액 (원)**")
-    with t_col3: st.markdown("**비고 / 산정방식**")
+    with t_col2: st.markdown("**연간 금액 (원)**")
+    with t_col3: st.markdown("**비고**")
 
     st.divider()
 
-    rc1, rc2, rc3 = st.columns([1.5, 2.5, 3])
-    with rc1: st.markdown("연간 인건비")
-    with rc2: st.text_input("인건비", value=st.session_state.labor_input, key="labor_widget", on_change=update_labor, label_visibility="collapsed")
-    with rc3: st.markdown("직접 입력")
+    r1_c1, r1_c2, r1_c3 = st.columns([1.5, 2.5, 3])
+    with r1_c1: st.markdown("연간 인건비")
+    with r1_c2: 
+        labor_str = st.text_input("인건비 입력", value=st.session_state.labor_input, key="labor_widget", on_change=update_labor, label_visibility="collapsed")
+    with r1_c3: 
+        labor_note = st.text_input("인건비 비고 입력", value=st.session_state.labor_note, label_visibility="collapsed")
 
-    rc1, rc2, rc3 = st.columns([1.5, 2.5, 3])
-    with rc1: st.markdown("연간 퇴직금")
-    with rc2: st.markdown(f"**{base_severance:,.0f} 원**")
-    with rc3: st.markdown("인건비 / 12개월")
+    r2_c1, r2_c2, r2_c3 = st.columns([1.5, 2.5, 3])
+    with r2_c1: st.markdown("연간 퇴직금")
+    with r2_c2: 
+        st.markdown(f"**{auto_severance:,.0f} 원**")
+    with r2_c3: 
+        severance_note = st.text_input("퇴직금 비고 입력", value=st.session_state.sev_note, label_visibility="collapsed")
 
-    rc1, rc2, rc3 = st.columns([1.5, 2.5, 3])
-    with rc1: st.markdown("연간 수선유지비")
-    with rc2: st.markdown(f"**{base_maintenance:,.0f} 원**")
-    with rc3: st.markdown("감가상각비의 10%")
+    severance_pay = auto_severance
 
-    rc1, rc2, rc3 = st.columns([1.5, 2.5, 3])
-    with rc1: st.markdown("도유지 대부료")
-    with rc2: st.markdown(f"**{base_land_rent:,.0f} 원**")
-    with rc3: st.markdown("Tab 2 대부료 산정 결과 연동")
+    r3_c1, r3_c2, r3_c3 = st.columns([1.5, 2.5, 3])
+    with r3_c1: st.markdown("연간 감가상각비")
+    with r3_c2: 
+        st.markdown(f"**{auto_depreciation:,.0f} 원**")
+    with r3_c3: 
+        dep_note = st.text_input("감가상각비 비고 입력", value=st.session_state.dep_note, label_visibility="collapsed")
 
-    rc1, rc2, rc3 = st.columns([1.5, 2.5, 3])
-    with rc1: st.markdown("연간 감가상각비")
-    with rc2: st.markdown(f"**{base_depreciation:,.0f} 원**")
-    with rc3: st.markdown("총사업비 / 사업기간 (정액)")
+    r4_c1, r4_c2, r4_c3 = st.columns([1.5, 2.5, 3])
+    with r4_c1: st.markdown("연간 수선유지비")
+    with r4_c2: 
+        st.markdown(f"**{auto_maintenance:,.0f} 원**")
+    with r4_c3: 
+        maint_note = st.text_input("수선유지비 비고 입력", value=st.session_state.maint_note, label_visibility="collapsed")
+
+    r5_c1, r5_c2, r5_c3 = st.columns([1.5, 2.5, 3])
+    with r5_c1: st.markdown("대부료")
+    with r5_c2: 
+        st.markdown(f"**{total_land_rent:,.0f} 원**")
+    with r5_c3: 
+        rent_note = st.text_input("대부료 비고 입력", value=st.session_state.rent_note, label_visibility="collapsed")
+
+    r6_c1, r6_c2, r6_c3 = st.columns([1.5, 2.5, 3])
+    with r6_c1: st.markdown("법인세")
+    with r6_c2: 
+        tax_str = st.text_input("법인세 입력", value=st.session_state.tax_input, key="tax_widget", on_change=update_tax, label_visibility="collapsed")
+    with r6_c3: 
+        tax_note = st.text_input("법인세 비고 입력", value=st.session_state.tax_note, label_visibility="collapsed")
+
+    try:
+        corporate_tax = int(st.session_state.tax_input.replace(",", "").strip()) if st.session_state.tax_input.replace(",", "").strip().isdigit() else calculated_tax
+    except ValueError:
+        corporate_tax = calculated_tax
+
+    initial_op_cost = labor_cost + severance_pay + depreciation + maintenance + land_rent_cost + corporate_tax
+    st.success(f"💰 **1년 차 총 운영비 합계 (대부료 및 법인세 포함):** {initial_op_cost:,.0f} 원")
 
 # ---------------------------------------------------------
 # 공통 계산 엔진 (Sheet 3 연도별 분석 구조 완벽 재현)
@@ -212,24 +286,20 @@ for year in range(0, int(years) + 1):
             0, 0, price_per_kwh, 0, 0, 0, 0, 0, 0, 0, 0, 0, -investment, 1.0, -investment, -investment, -investment, 0, 0
         ])
     else:
-        # 발전량 (연간 효율 감소율 적용)
         gen = first_year_gen * ((1 - degradation) ** (year - 1))
         revenue = gen * price_per_kwh
         
-        # 물가상승률 적용 비용 (인건비, 퇴직금, 수선유지비, 대부료)
         inflation_factor = (1 + inflation_rate) ** (year - 1)
-        labor = base_labor * inflation_factor
-        severance = base_severance * inflation_factor
-        maintenance = base_maintenance * inflation_factor
-        land_rent = base_land_rent * inflation_factor # 대부료 공시지가 상승 또는 동일 적용
+        labor = labor_cost * inflation_factor
+        severance = severance_pay * inflation_factor
+        maintenance = maintenance * inflation_factor
+        land_rent = total_land_rent * inflation_factor
         
         cash_op_cost = labor + severance + maintenance + land_rent
-        depreciation = base_depreciation
+        dep = depreciation
         
-        # 과세표준 (영업이익) = 매출액 - 현금운영비 - 감가상각비
-        taxable_income = revenue - cash_op_cost - depreciation
+        taxable_income = revenue - cash_op_cost - dep
         
-        # 법인세 (누진세율 적용: 2억 이하 9%, 초과분 19%)
         if taxable_income > 0:
             if taxable_income <= 200000000:
                 tax = taxable_income * 0.09
@@ -238,10 +308,7 @@ for year in range(0, int(years) + 1):
         else:
             tax = 0
             
-        # 프로젝트 현금흐름 = 매출액 - 현금운영비 - 법인세
         project_cf = revenue - cash_op_cost - tax
-        
-        # 할인계수 및 현재가치
         discount_factor = 1 / ((1 + discount_rate) ** year)
         dcf = project_cf * discount_factor
         
@@ -250,7 +317,7 @@ for year in range(0, int(years) + 1):
         cash_flows.append(project_cf)
         
         analysis_data.append([
-            year, gen, price_per_kwh, revenue, labor, severance, maintenance, land_rent, cash_op_cost, depreciation, taxable_income, tax, project_cf, discount_factor, dcf, cum_cf, cum_dcf, 0, 0
+            year, gen, price_per_kwh, revenue, labor, severance, maintenance, land_rent, cash_op_cost, dep, taxable_income, tax, project_cf, discount_factor, dcf, cum_cf, cum_dcf, 0, 0
         ])
 
 df_sheet3 = pd.DataFrame(analysis_data, columns=[
@@ -260,7 +327,6 @@ df_sheet3 = pd.DataFrame(analysis_data, columns=[
     "할인계수", "현금흐름 현재가치(원)", "누적 현금흐름(원)", "누적 할인현금흐름(원)", "단순 회수기간(년)", "할인 회수기간(년)"
 ])
 
-# NPV, IRR, PI 산출
 npv = npf.npv(discount_rate, cash_flows)
 irr = npf.irr(cash_flows) * 100 if npf.irr(cash_flows) else 0
 pv_of_future_cf = npv + investment
