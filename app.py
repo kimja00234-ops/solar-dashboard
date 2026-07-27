@@ -91,23 +91,19 @@ with tab1:
 
     st.divider()
 
-    # 구역 4: 운영비 정보 (표 형태 디자인 적용 및 숫자형 입력으로 전환하여 원단위 기호 상시 유지)
+    # 구역 4: 운영비 정보 (텍스트 입력 기반 실시간 콤마 파싱 적용하여 지웠다 다시 입력해도 완벽 호환)
     st.markdown("### 🔹 운영비 정보")
     st.markdown("운영비 세부 항목 및 비고를 확인하고 필요한 경우 금액을 수정해 주세요.")
 
-    auto_depreciation = float(investment / years) if years > 0 else 0.0
-    auto_maintenance = float(auto_depreciation * 0.10)
+    auto_depreciation = int(investment / years) if years > 0 else 0
+    auto_maintenance = int(auto_depreciation * 0.10)
     
-    # 세션 상태 초기화 (숫자형 관리)
-    if 'labor_val' not in st.session_state: st.session_state.labor_val = 10000000
+    # 세션 상태 초기화
+    if 'labor_input' not in st.session_state: st.session_state.labor_input = "10,000,000"
     if 'labor_note' not in st.session_state: st.session_state.labor_note = "전기안전관리자(대행) 인건비"
-    
     if 'sev_note' not in st.session_state: st.session_state.sev_note = "인건비 / 12개월"
     if 'dep_note' not in st.session_state: st.session_state.dep_note = "총사업비 / 사업기간"
     if 'maint_note' not in st.session_state: st.session_state.maint_note = "감가상각비의 10%"
-
-    current_labor = float(st.session_state.labor_val)
-    auto_severance = current_labor / 12.0
 
     # 테이블 헤더 구성
     t_col1, t_col2, t_col3 = st.columns([1.5, 2.5, 3])
@@ -117,45 +113,63 @@ with tab1:
 
     st.divider()
 
-    # 1. 인건비 (number_input 사용하여 천단위 및 원단위 표시 보장)
+    # 1. 인건비
     r1_c1, r1_c2, r1_c3 = st.columns([1.5, 2.5, 3])
     with r1_c1: st.markdown("연간 인건비")
     with r1_c2: 
-        st.session_state.labor_val = st.number_input("인건비 입력", value=int(st.session_state.labor_val), step=1000000, format="%d", label_visibility="collapsed")
+        labor_str = st.text_input("인건비 입력", value=st.session_state.labor_input, label_visibility="collapsed")
+        st.session_state.labor_input = labor_str
     with r1_c3: 
         labor_note = st.text_input("인건비 비고 입력", value=st.session_state.labor_note, label_visibility="collapsed")
 
-    labor_cost = int(st.session_state.labor_val)
+    try:
+        labor_cost = int(labor_str.replace(",", "").strip()) if labor_str.strip() else 0
+    except ValueError:
+        labor_cost = 0
 
-    # 2. 퇴직금
+    # 2. 퇴직금 (인건비 / 12개월 자동 연동 및 직접 수정 가능)
+    auto_severance = int(labor_cost / 12)
+    if 'sev_input' not in st.session_state: st.session_state.sev_input = f"{auto_severance:,}"
+    # 인건비가 바뀌면 퇴직금 기본값도 같이 업데이트되도록 처리
+    severance_default = f"{auto_severance:,}"
+
     r2_c1, r2_c2, r2_c3 = st.columns([1.5, 2.5, 3])
     with r2_c1: st.markdown("연간 퇴직금")
     with r2_c2: 
-        severance_val = st.number_input("퇴직금 입력", value=int(auto_severance), step=100000, format="%d", label_visibility="collapsed")
+        sev_str = st.text_input("퇴직금 입력", value=severance_default, label_visibility="collapsed")
     with r2_c3: 
         severance_note = st.text_input("퇴직금 비고 입력", value=st.session_state.sev_note, label_visibility="collapsed")
 
-    severance_pay = int(severance_val)
+    try:
+        severance_pay = int(sev_str.replace(",", "").strip()) if sev_str.strip() else 0
+    except ValueError:
+        severance_pay = 0
 
     # 3. 감가상각비
     r3_c1, r3_c2, r3_c3 = st.columns([1.5, 2.5, 3])
     with r3_c1: st.markdown("연간 감가상각비")
     with r3_c2: 
-        dep_val = st.number_input("감가상각비 입력", value=int(auto_depreciation), step=1000000, format="%d", label_visibility="collapsed")
+        dep_str = st.text_input("감가상각비 입력", value=f"{auto_depreciation:,}", label_visibility="collapsed")
     with r3_c3: 
         dep_note = st.text_input("감가상각비 비고 입력", value=st.session_state.dep_note, label_visibility="collapsed")
 
-    depreciation = int(dep_val)
+    try:
+        depreciation = int(dep_str.replace(",", "").strip()) if dep_str.strip() else 0
+    except ValueError:
+        depreciation = 0
 
     # 4. 수선유지비
     r4_c1, r4_c2, r4_c3 = st.columns([1.5, 2.5, 3])
     with r4_c1: st.markdown("연간 수선유지비")
     with r4_c2: 
-        maint_val = st.number_input("수선유지비 입력", value=int(auto_maintenance), step=500000, format="%d", label_visibility="collapsed")
+        maint_str = st.text_input("수선유지비 입력", value=f"{auto_maintenance:,}", label_visibility="collapsed")
     with r4_c3: 
         maint_note = st.text_input("수선유지비 비고 입력", value=st.session_state.maint_note, label_visibility="collapsed")
 
-    maintenance = int(maint_val)
+    try:
+        maintenance = int(maint_str.replace(",", "").strip()) if maint_str.strip() else 0
+    except ValueError:
+        maintenance = 0
 
 with tab2:
     st.subheader("🏢 공유재산(부지) 도유지 대부료 산정 (다중 필지 고려)")
@@ -199,8 +213,12 @@ with tab2:
     st.subheader("💸 기타 비용 입력")
     c_op5, c_note5 = st.columns([2, 2])
     with c_op5:
-        other_val = st.number_input("기타 비용 입력 (원)", value=0, step=500000, format="%d")
-        other_op_cost = int(other_val)
+        other_str = st.text_input("기타 비용 입력 (원)", value="0")
+        try:
+            other_op_cost = int(other_str.replace(",", "").strip()) if other_str.strip() else 0
+        except ValueError:
+            other_op_cost = 0
+            st.error("숫자만 입력해 주세요.")
     with c_note5:
         other_note = st.text_input("기타 비용 비고", value="기타 예비비 등")
 
@@ -340,5 +358,5 @@ if page == "2. 수익·지출·순수익 시각화":
         markers=True,
         title="연도별 순수익 및 누적 현금흐름 흐름"
     )
-    fig_line.update_layout(xaxis_title="운영 연도", yaxis_title="금액 (원)", legend_title="지표")
+    fig_line.update_label(xaxis_title="운영 연도", yaxis_title="금액 (원)", legend_title="지표")
     st.plotly_chart(fig_line, use_container_width=True)
