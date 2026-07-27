@@ -25,15 +25,23 @@ tab1, tab2, tab3 = st.tabs(["📌 1. 사업 기본 정보", "🏢 2. 부지 대�
 with tab1:
     st.subheader("📌 사업 기본 정보 및 발전 수익 가정 입력")
     
-    # 구역 1: 사업 기본 정보
+    # 구역 1: 사업 기본 정보 (요청하신 순서 및 짝꿍 배치 반영)
     st.markdown("### 🔹 사업 기본 정보")
     col1, col2 = st.columns(2)
     with col1:
         project_name = st.text_input("사업명", value="춘천 창촌리 태양광발전사업")
-        location = st.text_input("위치", value="강원특별자치도 춘천시 남산면 창촌리")
         capacity = st.number_input("설비용량 (kW)", value=986.21, format="%.2f")
+        
+        # 부지면적 연동을 위해 tab2의 첫 번째 필지 면적 값을 가져오거나 기본 부지면적 설정
+        land_area_str = st.text_input("부지면적 (㎡)", value="11,557")
+        try:
+            land_area = float(land_area_str.replace(",", ""))
+        except ValueError:
+            land_area = 11557.0
+
     with col2:
-        # 텍스트 박스로 천단위 콤마 실시간 입력 구현
+        location = st.text_input("위치", value="강원특별자치도 춘천시 남산면 창촌리")
+        
         investment_str = st.text_input("총사업비 (원)", value="1,972,000,000")
         try:
             investment = int(investment_str.replace(",", ""))
