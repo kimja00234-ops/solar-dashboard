@@ -568,7 +568,7 @@ df_sheet3["단순 회수기간(년)"] = simple_pb_list
 df_sheet3["할인 회수기간(년)"] = discounted_pb_list
 
 # ---------------------------------------------------------
-# ✅ [추가] 테이블 맨 밑 합계 행 산정 및 연결
+# 테이블 맨 밑 합계 행 산정 및 연결
 # ---------------------------------------------------------
 df_display = df_sheet3.copy()
 
@@ -588,7 +588,7 @@ sum_cols = [
     "현금흐름 현재가치(원)",
 ]
 
-# 합계 데이터 생성 (문자열 연도에 '합계' 설정)
+# 합계 데이터 생성
 sum_row = {col: "" for col in df_display.columns}
 sum_row["연도"] = "합계"
 
@@ -636,7 +636,7 @@ with tab3:
   st.divider()
   st.subheader("📋 20년간 연도별 현금흐름 분석 상세 테이블")
 
-  # 서식 적용 함수 정의 (합계 행 수치 및 빈값 포맷팅)
+  # 서식 적용 함수 정의
   def format_cell(val, fmt="{:,.0f}"):
     if isinstance(val, (int, float)) and not pd.isna(val):
       return fmt.format(val)
@@ -644,7 +644,8 @@ with tab3:
 
   st.dataframe(
       df_display.style.format({
-          "발전량(kWh)": lambda x: format_cell(x, "{:,.2f}"),
+          # ✅ 발전량(kWh) 소수점 제거 (정수 서식 적용)
+          "발전량(kWh)": lambda x: format_cell(x, "{:,.0f}"),
           "판매단가(원/kWh)": lambda x: format_cell(x, "{:,.1f}"),
           "매출액(원)": lambda x: format_cell(x, "{:,.0f}"),
           "인건비(원)": lambda x: format_cell(x, "{:,.0f}"),
