@@ -37,7 +37,7 @@ tab1, tab2, tab3 = st.tabs([
 with tab1:
   st.subheader("📌 사업 기본 정보 및 발전 가정 입력")
 
-  # ✅ Tab1 부지면적 변경 시 Tab2 필지1 면적 세션 상태 자동 업데이트 함수
+  # Tab1 부지면적 변경 시 Tab2 필지1 면적 세션 상태 자동 업데이트 함수
   def sync_land_area():
     val_str = st.session_state.land_area_widget.replace(",", "").strip()
     try:
@@ -57,7 +57,6 @@ with tab1:
     )
     capacity = capacity_val if capacity_val is not None else 0.0
 
-    # ✅ 부지면적 입력 시 on_change 함수로 tab2 필지 1 면적 동기화
     land_area_str = st.text_input(
         "부지면적 (㎡)",
         value="",
@@ -180,7 +179,7 @@ with tab1:
     st.caption("1년차 예상 발전량 × 전력 판매단가")
 
 # ---------------------------------------------------------
-# Tab 2: 부지 대부료 산정 (세션 상태 동기화)
+# Tab 2: 부지 대부료 산정 (필지 면적 천단위 기호 표기)
 # ---------------------------------------------------------
 with tab2:
   st.subheader("🏢 공유재산(부지) 도유지 대부료 산정 (다중 필지 고려)")
@@ -196,7 +195,6 @@ with tab2:
   total_land_rent = 0
   total_land_area = 0
 
-  # ✅ 필지 1 면적 세션 상태 초기화 (Tab1의 입력값 또는 0.0)
   if "area_0" not in st.session_state:
     st.session_state.area_0 = land_area
 
@@ -210,14 +208,14 @@ with tab2:
           key=f"name_{i}",
       )
     with c2:
-      # ✅ 필지별 key 세션 관리로 실시간 연동 및 사용자 직접 수정 가능
       if f"area_{i}" not in st.session_state:
         st.session_state[f"area_{i}"] = 3557.0 if i > 0 else land_area
 
+      # ✅ 면적 입력란 천단위 표기 방식 적용
       p_area = st.number_input(
           f"필지 {i+1} 면적 (㎡)",
           key=f"area_{i}",
-          format="%.2f",
+          format="%,.2f",  # %,.2f 표기 사용으로 천 단위 콤마 자동 표시
       )
     with c3:
       p_price_str = st.text_input(
