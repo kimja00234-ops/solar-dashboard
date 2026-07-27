@@ -31,9 +31,9 @@ with tab1:
     with col1:
         project_name = st.text_input("사업명", value="춘천 창촌리 태양광발전사업")
         location = st.text_input("위치", value="강원특별자치도 춘천시 남산면 창촌리")
-        capacity = st.number_input("설비용량 (kW)", value=986.21)
+        capacity = st.number_input("설비용량 (kW)", value=986.21, format="%.2f")
     with col2:
-        investment = st.number_input("총사업비 (원)", value=1972000000, step=10000000)
+        investment = st.number_input("총사업비 (원)", value=1972000000, step=10000000, format="%d")
         years = st.number_input("사업기간 (년)", value=20, step=1)
 
     st.divider()
@@ -42,8 +42,8 @@ with tab1:
     st.markdown("### 🔹 발전 및 수익 가정")
     col3, col4 = st.columns(2)
     with col3:
-        price_per_kwh = st.number_input("전력 판매단가 (원/kWh)", value=150.0)
-        initial_efficiency = st.number_input("최초 운영 패널 효율 (%) (기본값 적용)", value=99.0) / 100.0
+        price_per_kwh = st.number_input("전력 판매단가 (원/kWh)", value=150.0, format="%.2f")
+        initial_efficiency = st.number_input("최초 운영 패널 효율 (%) (기본값 적용)", value=99.0, format="%.2f") / 100.0
     with col4:
         degradation = st.number_input("연간 발전효율 감소율 (%) (기본값 적용)", value=0.80, format="%.2f") / 100.0
 
@@ -61,11 +61,11 @@ with tab2:
         with c1:
             p_name = st.text_input(f"필지 {i+1} 지번", value=f"창촌리 610-{136 if i==0 else 72}", key=f"name_{i}")
         with c2:
-            p_area = st.number_input(f"필지 {i+1} 면적 (㎡)", value=8000.0 if i==0 else 3557.0, key=f"area_{i}")
+            p_area = st.number_input(f"필지 {i+1} 면적 (㎡)", value=8000.0 if i==0 else 3557.0, key=f"area_{i}", format="%.2f")
         with c3:
-            p_price = st.number_input(f"필지 {i+1} 공시지가 (원/㎡)", value=50000.0 if i==0 else 45000.0, key=f"price_{i}")
+            p_price = st.number_input(f"필지 {i+1} 공시지가 (원/㎡)", value=50000.0 if i==0 else 45000.0, key=f"price_{i}", format="%.2f")
         with c4:
-            p_rate = st.number_input(f"필지 {i+1} 대부요율 (%)", value=5.0, key=f"rate_{i}") / 100.0
+            p_rate = st.number_input(f"필지 {i+1} 대부요율 (%)", value=5.0, key=f"rate_{i}", format="%.2f") / 100.0
         
         p_rent = p_area * p_price * p_rate
         total_land_rent += p_rent
@@ -86,14 +86,14 @@ with tab3:
     c1, c2 = st.columns(2)
     with c1:
         st.markdown("**[운영비 세부 항목]**")
-        labor_cost = st.number_input("인건비 (원)", value=10000000, step=1000000)
-        severance_pay = st.number_input("퇴직금 (원)", value=1000000, step=100000)
-        maintenance = st.number_input("수선유지비 (원)", value=4000000, step=500000)
-        other_op_cost = st.number_input("기타 운영비 (원)", value=0, step=500000)
+        labor_cost = st.number_input("인건비 (원)", value=10000000, step=1000000, format="%d")
+        severance_pay = st.number_input("퇴직금 (원)", value=1000000, step=100000, format="%d")
+        maintenance = st.number_input("수선유지비 (원)", value=4000000, step=500000, format="%d")
+        other_op_cost = st.number_input("기타 운영비 (원)", value=0, step=500000, format="%d")
     with c2:
         st.markdown("**[재무 가정 설정]**")
-        inflation_rate = st.number_input("물가상승률 (%)", value=3.11, help="최근 5년(2021~2025) 평균 물가상승률 적용") / 100.0
-        discount_rate = st.number_input("할인율 (%)", value=4.5) / 100.0
+        inflation_rate = st.number_input("물가상승률 (%)", value=3.11, help="최근 5년(2021~2025) 평균 물가상승률 적용", format="%.2f") / 100.0
+        discount_rate = st.number_input("할인율 (%)", value=4.5, format="%.2f") / 100.0
 
     initial_op_cost = labor_cost + severance_pay + maintenance + total_land_rent + other_op_cost
     st.success(f"💰 **1년 차 총 운영비 (대부료 포함):** {initial_op_cost:,.0f} 원")
