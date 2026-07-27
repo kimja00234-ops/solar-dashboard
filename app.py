@@ -20,7 +20,7 @@ st.sidebar.markdown("💡 메인 화면의 **탭(Tab)**을 통해 입력과 분�
 st.title("☀️ 태양광 발전사업 타당성 자동 분석 프로그램")
 st.markdown("입력 항목과 분석 결과를 아래의 **탭**을 통해 각각 확인해 주세요.")
 
-tab1, tab2, tab3 = st.tabs(["📌 1. 사업 기본 정보 및 운영비·가정 입력", "🏢 2. 부지 대부료 산정", "📊 3. 사업성 분석 대시보드"])
+tab1, tab2, tab3 = st.tabs(["📌 1. 사업 기본 정보 및 운영비·가정 입력", "🏢 2. 부지 대부료 산정", "📊 3. 20년간 연도별 현금흐름 분석 대시보드"])
 
 # ---------------------------------------------------------
 # Tab 2: 부지 대부료 산정 (필지별 산정 및 내역 테이블 포함)
@@ -161,15 +161,13 @@ with tab1:
 
     st.divider()
 
-    # 구역 4: 운영비 정보 (요청하신 자동 계산 및 인건비 기본값 2,400,000원 반영)
+    # 구역 4: 운영비 정보
     st.markdown("### 🔹 운영비 정보")
     st.markdown("운영비 세부 항목 및 비고를 확인하고 필요한 경우 금액을 수정해 주세요.")
 
-    # 자동 산정 로직: 감가상각비(총사업비 / 사업기간), 수선유지비(감가상각비의 10%)
     auto_depreciation = int(investment / years) if years > 0 else 0
     auto_maintenance = int(auto_depreciation * 0.10)
 
-    # 세션 상태 초기화 (인건비 기본값 2,400,000원 설정)
     if 'labor_input' not in st.session_state: st.session_state.labor_input = "2,400,000"
 
     def update_labor():
@@ -180,7 +178,6 @@ with tab1:
         else:
             st.session_state.labor_input = val
 
-    # 인건비 파싱 및 퇴직금 자동 계산 (인건비 / 12)
     try:
         labor_cost = int(st.session_state.labor_input.replace(",", "").strip()) if st.session_state.labor_input.replace(",", "").strip().isdigit() else 2400000
     except ValueError:
@@ -191,7 +188,6 @@ with tab1:
     maintenance = auto_maintenance
     land_rent_cost = total_land_rent
 
-    # 법인세 자동 산정
     partial_op_cost = labor_cost + auto_severance + depreciation + maintenance + land_rent_cost
     annual_taxable_income = first_year_revenue - partial_op_cost
     
@@ -221,7 +217,6 @@ with tab1:
     if 'rent_note' not in st.session_state: st.session_state.rent_note = "공유재산 대부료 산정 (대부요율 5%, 경감률 50% 적용)"
     if 'tax_note' not in st.session_state: st.session_state.tax_note = "세전 순이익 기준 법인세 자동 산정 (중소기업 세율 반영)"
 
-    # 테이블 헤더 구성
     t_col1, t_col2, t_col3 = st.columns([1.5, 2.5, 3])
     with t_col1: st.markdown("**구분**")
     with t_col2: st.markdown("**연간 금액 (원)**")
@@ -229,7 +224,6 @@ with tab1:
 
     st.divider()
 
-    # 1. 인건비
     r1_c1, r1_c2, r1_c3 = st.columns([1.5, 2.5, 3])
     with r1_c1: st.markdown("연간 인건비")
     with r1_c2: 
@@ -237,7 +231,6 @@ with tab1:
     with r1_c3: 
         labor_note = st.text_input("인건비 비고 입력", value=st.session_state.labor_note, label_visibility="collapsed")
 
-    # 2. 퇴직금 (자동 산정 표기)
     r2_c1, r2_c2, r2_c3 = st.columns([1.5, 2.5, 3])
     with r2_c1: st.markdown("연간 퇴직금")
     with r2_c2: 
@@ -247,7 +240,6 @@ with tab1:
 
     severance_pay = auto_severance
 
-    # 3. 감가상각비 (자동 산정 표기)
     r3_c1, r3_c2, r3_c3 = st.columns([1.5, 2.5, 3])
     with r3_c1: st.markdown("연간 감가상각비")
     with r3_c2: 
@@ -255,7 +247,6 @@ with tab1:
     with r3_c3: 
         dep_note = st.text_input("감가상각비 비고 입력", value=st.session_state.dep_note, label_visibility="collapsed")
 
-    # 4. 수선유지비 (자동 산정 표기)
     r4_c1, r4_c2, r4_c3 = st.columns([1.5, 2.5, 3])
     with r4_c1: st.markdown("연간 수선유지비")
     with r4_c2: 
@@ -263,7 +254,6 @@ with tab1:
     with r4_c3: 
         maint_note = st.text_input("수선유지비 비고 입력", value=st.session_state.maint_note, label_visibility="collapsed")
 
-    # 5. 대부료
     r5_c1, r5_c2, r5_c3 = st.columns([1.5, 2.5, 3])
     with r5_c1: st.markdown("대부료")
     with r5_c2: 
@@ -271,7 +261,6 @@ with tab1:
     with r5_c3: 
         rent_note = st.text_input("대부료 비고 입력", value=st.session_state.rent_note, label_visibility="collapsed")
 
-    # 6. 법인세
     r6_c1, r6_c2, r6_c3 = st.columns([1.5, 2.5, 3])
     with r6_c1: st.markdown("법인세")
     with r6_c2: 
@@ -338,27 +327,15 @@ simple_payback = calculate_payback(df, "순수익", "누적현금흐름")
 discounted_payback = calculate_payback(df, "할인현금흐름", "누적할인현금흐름")
 
 # ---------------------------------------------------------
-# Tab 3: 사업성 분석 대시보드
+# Tab 3: 20년간 연도별 현금흐름 분석 대시보드
 # ---------------------------------------------------------
 with tab3:
-    st.subheader("📊 사업성 분석 결과 대시보드")
+    st.subheader("📊 20년간 연도별 현금흐름 분석 대시보드")
     st.markdown(f"### 📍 {project_name} ({location})")
     st.markdown(f"**1년차 예상 발전량:** `{first_year_gen:,.0f} kWh` (연간 기준 발전량 × 최초 운영 패널 효율, 십의 자리 반올림)")
     st.divider()
 
-    st.subheader("🏢 다중 필지 대부료 산정 내역")
-    df_parcels = pd.DataFrame(parcel_data)
-    st.dataframe(df_parcels.style.format({
-        "면적(㎡)": "{:,.2f}",
-        "공시지가(원/㎡)": "{:,.0f}",
-        "대부요율(%)": "{:.2f}%",
-        "경감률(%)": "{:.2f}%",
-        "연간 대부료(원)": "{:,.0f}"
-    }), use_container_width=True)
-    st.markdown(f"**총 대부료 합계 (1년 차):** `{total_land_rent:,.0f} 원` (운영비에 자동 반영됨)")
-    st.divider()
-
-    st.subheader("💡 핵심 재무 지표")
+    st.subheader("💡 핵심 재무 지표 요약")
     col1, col2, col3, col4, col5 = st.columns(5)
     npv_millions = npv / 1_000_000
 
@@ -369,7 +346,45 @@ with tab3:
     col5.metric("할인 회수기간", f"{discounted_payback:.2f} 년" if isinstance(discounted_payback, float) else discounted_payback)
 
     st.divider()
-    st.subheader("📋 연도별 상세 데이터")
+    st.subheader("📈 연도별 현금흐름 및 누적 추이 시각화")
+    
+    # 1. 연도별 수익, 지출, 순수익 비교 바 차트
+    df_melted = df.melt(
+        id_vars=["연도"], 
+        value_vars=["수익(매출액)", "지출(운영비)", "순수익"],
+        var_name="구분", 
+        value_name="금액(원)"
+    )
+
+    fig_bar = px.bar(
+        df_melted, 
+        x="연도", 
+        y="금액(원)", 
+        color="구분", 
+        barmode="group",
+        title="연도별 수익, 지출 및 순수익 비교 추이",
+        color_discrete_map={
+            "수익(매출액)": "#2b8cbe",
+            "지출(운영비)": "#de2d26",
+            "순수익": "#31a354"
+        }
+    )
+    fig_bar.update_layout(xaxis_title="운영 연도", yaxis_title="금액 (원)", legend_title="항목")
+    st.plotly_chart(fig_bar, use_container_width=True)
+
+    # 2. 순수익 및 누적 현금흐름 라인 차트
+    fig_line = px.line(
+        df, 
+        x="연도", 
+        y=["순수익", "누적현금흐름"], 
+        markers=True,
+        title="연도별 순수익 및 누적 현금흐름 추이"
+    )
+    fig_line.update_layout(xaxis_title="운영 연도", yaxis_title="금액 (원)", legend_title="지표")
+    st.plotly_chart(fig_line, use_container_width=True)
+
+    st.divider()
+    st.subheader("📋 20년간 연도별 상세 현금흐름 데이터 테이블")
     st.dataframe(df.style.format({
         "발전량(kWh)": "{:,.0f}",
         "수익(매출액)": "{:,.0f}",
@@ -381,7 +396,7 @@ with tab3:
     }), use_container_width=True)
 
 # ---------------------------------------------------------
-# 페이지 2: 수익·지출·순수익 시각화 대시보드
+# 페이지 2: 수익·지출·순수익 시각화 대시보드 (사이드바 메뉴)
 # ---------------------------------------------------------
 if page == "2. 수익·지출·순수익 시각화":
     st.title("📊 수익 · 지출 · 순수익 한눈에 보기")
