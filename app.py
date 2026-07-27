@@ -273,7 +273,7 @@ with tab1:
   maintenance_cost_1st_year = auto_maintenance
   land_rent_cost = total_land_rent
 
-  # ✅ 과세표준(세전 영업이익) = 매출액 - 현금운영비(인건비+퇴직금+수선유지비+대부료) - 감가상각비
+  # 과세표준(세전 영업이익) = 매출액 - 현금운영비(인건비+퇴직금+수선유지비+대부료) - 감가상각비
   total_deductible_expenses = (
       labor_cost
       + auto_severance
@@ -283,7 +283,7 @@ with tab1:
   )
   annual_taxable_income = first_year_revenue - total_deductible_expenses
 
-  # ✅ 누진세율 적용 법인세 자동 계산 (2억원 이하 9%, 초과분 19%)
+  # 누진세율 적용 법인세 자동 계산 (2억원 이하 9%, 초과분 19%)
   if annual_taxable_income > 0:
     if annual_taxable_income <= 200000000:
       calculated_tax = int(annual_taxable_income * 0.09)
@@ -294,16 +294,8 @@ with tab1:
   else:
     calculated_tax = 0
 
-  if "tax_initialized" not in st.session_state:
-    st.session_state.tax_input = f"{calculated_tax:,}"
-    st.session_state.tax_initialized = True
-
-  def update_tax():
-    val = st.session_state.tax_widget.replace(",", "").strip()
-    if val.isdigit():
-      st.session_state.tax_input = f"{int(val):,}"
-    else:
-      st.session_state.tax_input = val
+  # ✅ Tab 1의 법인세 입력란에 자동 산정된 법인세(calculated_tax)가 즉시 반영되도록 처리
+  corporate_tax = calculated_tax
 
   if "labor_note" not in st.session_state:
     st.session_state.labor_note = "전기안전관리자(대행) 인건비"
@@ -406,28 +398,14 @@ with tab1:
   with r6_c1:
     st.markdown("법인세")
   with r6_c2:
-    tax_str = st.text_input(
-        "법인세 입력",
-        value=st.session_state.tax_input,
-        key="tax_widget",
-        on_change=update_tax,
-        label_visibility="collapsed",
-    )
+    # ✅ 자동 산정된 1년 차 법인세 금액이 표시되도록 반영
+    st.markdown(f"**{corporate_tax:,.0f} 원**")
   with r6_c3:
     tax_note = st.text_input(
         "법인세 비고 입력",
         value=st.session_state.tax_note,
         label_visibility="collapsed",
     )
-
-  try:
-    corporate_tax = (
-        int(st.session_state.tax_input.replace(",", "").strip())
-        if st.session_state.tax_input.replace(",", "").strip().isdigit()
-        else calculated_tax
-    )
-  except ValueError:
-    corporate_tax = calculated_tax
 
   initial_op_cost = (
       labor_cost
