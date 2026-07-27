@@ -53,7 +53,7 @@ with tab1:
     st.markdown("### 🔹 발전 가정량")
     col3, col4 = st.columns(2)
     with col3:
-        sun_hours = st.number_input("일일 평균 발전시간 (시간)", value=3.5, format="%.2f")
+        sun_hours = st.number_input("일일 평균 발전시간 (h/day)", value=3.5, format="%.2f")
         initial_efficiency = st.number_input("최초 운영 패널 효율 (%) (기본값 적용)", value=99.0, format="%.2f") / 100.0
         degradation = st.number_input("연간 발전효율 감소율 (%) (기본값 적용)", value=0.80, format="%.2f") / 100.0
     with col4:
