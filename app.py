@@ -294,7 +294,6 @@ with tab1:
   else:
     calculated_tax = 0
 
-  # ✅ Tab 1의 법인세 입력란에 자동 산정된 법인세(calculated_tax)가 즉시 반영되도록 처리
   corporate_tax = calculated_tax
 
   if "labor_note" not in st.session_state:
@@ -398,7 +397,6 @@ with tab1:
   with r6_c1:
     st.markdown("법인세")
   with r6_c2:
-    # ✅ 자동 산정된 1년 차 법인세 금액이 표시되도록 반영
     st.markdown(f"**{corporate_tax:,.0f} 원**")
   with r6_c3:
     tax_note = st.text_input(
@@ -456,10 +454,7 @@ for year in range(0, int(years) + 1):
     inflation_factor = (1 + inflation_rate) ** (year - 1)
     labor = labor_cost * inflation_factor
     severance = severance_pay * inflation_factor
-
-    # 감가상각비 5% 기준 1년차 수선유지비에 물가상승률 적용
     maint = maintenance_cost_1st_year * inflation_factor
-
     land_rent = total_land_rent * inflation_factor
 
     cash_op_cost = labor + severance + maint + land_rent
@@ -554,7 +549,7 @@ discounted_payback, discounted_payback_year = get_payback_info(
     df_sheet3, "현금흐름 현재가치(원)", "누적 할인현금흐름(원)"
 )
 
-# 테이블용 연도별 회수기간 컬럼 추가 (해당하는 회수 년도에만 값 표시)
+# 테이블용 연도별 회수기간 컬럼 추가
 simple_pb_list = []
 discounted_pb_list = []
 
@@ -571,6 +566,36 @@ for y in df_sheet3["연도"]:
 
 df_sheet3["단순 회수기간(년)"] = simple_pb_list
 df_sheet3["할인 회수기간(년)"] = discounted_pb_list
+
+# ---------------------------------------------------------
+# ✅ [추가] 테이블 맨 밑 합계 행 산정 및 연결
+# ---------------------------------------------------------
+df_display = df_sheet3.copy()
+
+# 합산 대상 수치 컬럼들 (운영 기간 1~20년 합산)
+sum_cols = [
+    "발전량(kWh)",
+    "매출액(원)",
+    "인건비(원)",
+    "퇴직금(원)",
+    "수선유지비(원)",
+    "도유지 대부료(원)",
+    "현금운영비(원)",
+    "감가상각비(원)",
+    "과세표준(영업이익, 원)",
+    "법인세(누진세율, 원)",
+    "프로젝트 현금흐름(원)",
+    "현금흐름 현재가치(원)",
+]
+
+# 합계 데이터 생성 (문자열 연도에 '합계' 설정)
+sum_row = {col: "" for col in df_display.columns}
+sum_row["연도"] = "합계"
+
+for col in sum_cols:
+  sum_row[col] = df_display[df_display["연도"] != 0][col].sum()
+
+df_display = pd.concat([df_display, pd.DataFrame([sum_row])], ignore_index=True)
 
 # ---------------------------------------------------------
 # Tab 3: 연도별 분석 (Sheet 3 연동 대시보드)
@@ -611,24 +636,30 @@ with tab3:
   st.divider()
   st.subheader("📋 20년간 연도별 현금흐름 분석 상세 테이블")
 
+  # 서식 적용 함수 정의 (합계 행 수치 및 빈값 포맷팅)
+  def format_cell(val, fmt="{:,.0f}"):
+    if isinstance(val, (int, float)) and not pd.isna(val):
+      return fmt.format(val)
+    return str(val) if not pd.isna(val) else ""
+
   st.dataframe(
-      df_sheet3.style.format({
-          "발전량(kWh)": "{:,.2f}",
-          "판매단가(원/kWh)": "{:,.1f}",
-          "매출액(원)": "{:,.0f}",
-          "인건비(원)": "{:,.0f}",
-          "퇴직금(원)": "{:,.0f}",
-          "수선유지비(원)": "{:,.0f}",
-          "도유지 대부료(원)": "{:,.0f}",
-          "현금운영비(원)": "{:,.0f}",
-          "감가상각비(원)": "{:,.0f}",
-          "과세표준(영업이익, 원)": "{:,.0f}",
-          "법인세(누진세율, 원)": "{:,.0f}",
-          "프로젝트 현금흐름(원)": "{:,.0f}",
-          "할인계수": "{:,.4f}",
-          "현금흐름 현재가치(원)": "{:,.0f}",
-          "누적 현금흐름(원)": "{:,.0f}",
-          "누적 할인현금흐름(원)": "{:,.0f}",
+      df_display.style.format({
+          "발전량(kWh)": lambda x: format_cell(x, "{:,.2f}"),
+          "판매단가(원/kWh)": lambda x: format_cell(x, "{:,.1f}"),
+          "매출액(원)": lambda x: format_cell(x, "{:,.0f}"),
+          "인건비(원)": lambda x: format_cell(x, "{:,.0f}"),
+          "퇴직금(원)": lambda x: format_cell(x, "{:,.0f}"),
+          "수선유지비(원)": lambda x: format_cell(x, "{:,.0f}"),
+          "도유지 대부료(원)": lambda x: format_cell(x, "{:,.0f}"),
+          "현금운영비(원)": lambda x: format_cell(x, "{:,.0f}"),
+          "감가상각비(원)": lambda x: format_cell(x, "{:,.0f}"),
+          "과세표준(영업이익, 원)": lambda x: format_cell(x, "{:,.0f}"),
+          "법인세(누진세율, 원)": lambda x: format_cell(x, "{:,.0f}"),
+          "프로젝트 현금흐름(원)": lambda x: format_cell(x, "{:,.0f}"),
+          "할인계수": lambda x: format_cell(x, "{:,.4f}"),
+          "현금흐름 현재가치(원)": lambda x: format_cell(x, "{:,.0f}"),
+          "누적 현금흐름(원)": lambda x: format_cell(x, "{:,.0f}"),
+          "누적 할인현금흐름(원)": lambda x: format_cell(x, "{:,.0f}"),
       }),
       use_container_width=True,
   )
