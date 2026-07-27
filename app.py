@@ -273,11 +273,15 @@ with tab1:
     except ValueError:
         corporate_tax = calculated_tax
 
-    initial_op_cost = labor_cost + severance_pay + depreciation + maintenance + land_rent_cost + corporate_tax
-    st.success(f"💰 **1년 차 총 운영비 합계 (대부료 및 법인세 포함):** {initial_op_cost:,.0f} 원")
+    # 운영비 구성 분리를 위한 현금성 운영비(현금 지출 비용) 및 비현금성 감가상각비 구분
+    # 현금성 운영비 = 인건비 + 퇴직금 + 수선유지비 + 대부료 + 법인세 (물가상승률 적용 대상)
+    initial_cash_op_cost = labor_cost + severance_pay + maintenance + land_rent_cost + corporate_tax
+    initial_op_cost = initial_cash_op_cost + depreciation
+    
+    st.success(f"💰 **1년 차 총 운영비 합계 (현금성 운영비 + 감가상각비):** {initial_op_cost:,.0f} 원")
 
 # ---------------------------------------------------------
-# 공통 계산 엔진 (현금흐름 및 지표 산출)
+# 공통 계산 엔진 (현금흐름 및 지표 산출 - 감가상각비 분리 반영)
 # ---------------------------------------------------------
 cash_flows = [-investment]
 data = []
@@ -287,7 +291,12 @@ cum_dcf = -investment
 for year in range(1, int(years) + 1):
     gen = round(first_year_gen * ((1 - degradation) ** (year - 1)), -1)
     revenue = gen * price_per_kwh
-    current_op_cost = initial_op_cost * ((1 + inflation_rate) ** (year - 1))
+    
+    # 물가상승률은 현금성 운영비에만 적용하며, 감가상각비는 정액(고정)으로 처리하여 실질 현금흐름 정밀도 향상
+    current_cash_op_cost = initial_cash_op_cost * ((1 + inflation_rate) ** (year - 1))
+    current_depreciation = depreciation # 감가상각비는 비현금성 비용으로 정액 처리
+    current_op_cost = current_cash_op_cost + current_depreciation
+    
     net_cf = revenue - current_op_cost
     
     discount_factor = (1 + discount_rate) ** year
@@ -298,11 +307,11 @@ for year in range(1, int(years) + 1):
     cash_flows.append(net_cf)
     
     data.append([
-        year, gen, revenue, current_op_cost, net_cf, cum_cf, dcf, cum_dcf
+        year, gen, revenue, current_cash_op_cost, current_depreciation, current_op_cost, net_cf, cum_cf, dcf, cum_dcf
     ])
 
 df = pd.DataFrame(data, columns=[
-    "연도", "발전량(kWh)", "수익(매출액)", "지출(운영비)", "순수익", 
+    "연도", "발전량(kWh)", "수익(매출액)", "현금성운영비", "감가상각비", "지출(총운영비)", "순수익", 
     "누적현금흐름", "할인현금흐름", "누적할인현금흐름"
 ])
 
@@ -327,7 +336,7 @@ simple_payback = calculate_payback(df, "순수익", "누적현금흐름")
 discounted_payback = calculate_payback(df, "할인현금흐름", "누적할인현금흐름")
 
 # ---------------------------------------------------------
-# Tab 3: 20년간 연도별 현금흐름 분석 대시보드
+# Tab 3: 20년간 연도별 현금흐름 분석 대시보드 (요청 사항 반영)
 # ---------------------------------------------------------
 with tab3:
     st.subheader("📊 20년간 연도별 현금흐름 분석 대시보드")
@@ -346,49 +355,15 @@ with tab3:
     col5.metric("할인 회수기간", f"{discounted_payback:.2f} 년" if isinstance(discounted_payback, float) else discounted_payback)
 
     st.divider()
-    st.subheader("📈 연도별 현금흐름 및 누적 추이 시각화")
+    st.subheader("📋 20년간 연도별 상세 현금흐름 데이터 테이블 (감가상각비 분리 반영)")
+    st.markdown("※ 현금성 운영비(인건비, 퇴직금, 수선유지비, 대부료, 법인세)에는 물가상승률이 매년 반영되며, 비현금성 비용인 감가상각비는 정액(고정) 분리하여 재무 타당성을 정밀 검토하였습니다.")
     
-    # 1. 연도별 수익, 지출, 순수익 비교 바 차트
-    df_melted = df.melt(
-        id_vars=["연도"], 
-        value_vars=["수익(매출액)", "지출(운영비)", "순수익"],
-        var_name="구분", 
-        value_name="금액(원)"
-    )
-
-    fig_bar = px.bar(
-        df_melted, 
-        x="연도", 
-        y="금액(원)", 
-        color="구분", 
-        barmode="group",
-        title="연도별 수익, 지출 및 순수익 비교 추이",
-        color_discrete_map={
-            "수익(매출액)": "#2b8cbe",
-            "지출(운영비)": "#de2d26",
-            "순수익": "#31a354"
-        }
-    )
-    fig_bar.update_layout(xaxis_title="운영 연도", yaxis_title="금액 (원)", legend_title="항목")
-    st.plotly_chart(fig_bar, use_container_width=True)
-
-    # 2. 순수익 및 누적 현금흐름 라인 차트
-    fig_line = px.line(
-        df, 
-        x="연도", 
-        y=["순수익", "누적현금흐름"], 
-        markers=True,
-        title="연도별 순수익 및 누적 현금흐름 추이"
-    )
-    fig_line.update_layout(xaxis_title="운영 연도", yaxis_title="금액 (원)", legend_title="지표")
-    st.plotly_chart(fig_line, use_container_width=True)
-
-    st.divider()
-    st.subheader("📋 20년간 연도별 상세 현금흐름 데이터 테이블")
     st.dataframe(df.style.format({
         "발전량(kWh)": "{:,.0f}",
         "수익(매출액)": "{:,.0f}",
-        "지출(운영비)": "{:,.0f}",
+        "현금성운영비": "{:,.0f}",
+        "감가상각비": "{:,.0f}",
+        "지출(총운영비)": "{:,.0f}",
         "순수익": "{:,.0f}",
         "누적현금흐름": "{:,.0f}",
         "할인현금흐름": "{:,.0f}",
@@ -405,7 +380,7 @@ if page == "2. 수익·지출·순수익 시각화":
 
     df_melted = df.melt(
         id_vars=["연도"], 
-        value_vars=["수익(매출액)", "지출(운영비)", "순수익"],
+        value_vars=["수익(매출액)", "지출(총운영비)", "순수익"],
         var_name="구분", 
         value_name="금액(원)"
     )
@@ -416,10 +391,10 @@ if page == "2. 수익·지출·순수익 시각화":
         y="금액(원)", 
         color="구분", 
         barmode="group",
-        title="연도별 수익, 지출 및 순수익 비교 추이",
+        title="연도별 수익, 총운영비 및 순수익 비교 추이",
         color_discrete_map={
             "수익(매출액)": "#2b8cbe",
-            "지출(운영비)": "#de2d26",
+            "지출(총운영비)": "#de2d26",
             "순수익": "#31a354"
         }
     )
@@ -433,7 +408,7 @@ if page == "2. 수익·지출·순수익 시각화":
         x="연도", 
         y=["순수익", "누적현금흐름"], 
         markers=True,
-        title="연도별 순수익 및 누적 현금흐름 흐름"
+        title="연도별 순수익 및 누적 현금흐름 추이"
     )
     fig_line.update_layout(xaxis_title="운영 연도", yaxis_title="금액 (원)", legend_title="지표")
     st.plotly_chart(fig_line, use_container_width=True)
