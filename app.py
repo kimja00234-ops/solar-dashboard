@@ -11,7 +11,7 @@ st.markdown("기본 정보와 세부 운영비용을 입력하면 NPV, IRR, PI �
 # 1. 사이드바 - 사용자 입력창 구성
 # ---------------------------------------------------------
 st.sidebar.header("1. 사업 기본 정보")
-project_name = st.sidebar.text_input("사업명", value="춘천 창촌리 태양광발전사업")
+project_name = st.sidebar.text_input("사업명", value="")
 location = st.sidebar.text_input("위치", value="강원특별자치도 춘천시 남산면 창촌리")
 capacity = st.sidebar.number_input("설비용량 (kW)", value=986.21)
 investment = st.sidebar.number_input("총사업비 (원)", value=1972000000, step=10000000)
