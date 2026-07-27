@@ -161,140 +161,38 @@ with tab1:
 
     st.divider()
 
-    # 구역 4: 운영비 정보
+    # 구역 4: 운영비 정보 (요청하신 자동 계산 및 인건비 기본값 2,400,000원 반영)
     st.markdown("### 🔹 운영비 정보")
     st.markdown("운영비 세부 항목 및 비고를 확인하고 필요한 경우 금액을 수정해 주세요.")
 
+    # 자동 산정 로직: 감가상각비(총사업비 / 사업기간), 수선유지비(감가상각비의 10%)
     auto_depreciation = int(investment / years) if years > 0 else 0
     auto_maintenance = int(auto_depreciation * 0.10)
-    auto_severance_default = int(10000000 / 12)
 
-    temp_op_cost_wo_tax = 10000000 + auto_severance_default + auto_depreciation + auto_maintenance + total_land_rent
-    temp_operating_profit = first_year_revenue - temp_op_cost_wo_tax
-    
-    if temp_operating_profit > 0:
-        if temp_operating_profit <= 200000000:
-            auto_tax = int(temp_operating_profit * 0.09)
-        else:
-            auto_tax = int(200000000 * 0.09 + (temp_operating_profit - 200000000) * 0.19)
-    else:
-        auto_tax = 0
-
-    if 'labor_input' not in st.session_state: st.session_state.labor_input = "10,000,000"
-    if 'sev_input' not in st.session_state: st.session_state.sev_input = f"{auto_severance_default:,}"
-    if 'dep_input' not in st.session_state: st.session_state.dep_input = f"{auto_depreciation:,}"
-    if 'maint_input' not in st.session_state: st.session_state.maint_input = f"{auto_maintenance:,}"
-    if 'tax_input' not in st.session_state: st.session_state.tax_input = f"{auto_tax:,}"
-
-    if 'labor_note' not in st.session_state: st.session_state.labor_note = "전기안전관리자(대행) 인건비"
-    if 'sev_note' not in st.session_state: st.session_state.sev_note = "인건비 / 12개월"
-    if 'dep_note' not in st.session_state: st.session_state.dep_note = "총사업비 / 사업기간"
-    if 'maint_note' not in st.session_state: st.session_state.maint_note = "감가상각비의 10%"
-    if 'rent_note' not in st.session_state: st.session_state.rent_note = "공유재산 대부료 산정 (대부요율 5%, 경감률 50% 적용)"
-    if 'tax_note' not in st.session_state: st.session_state.tax_note = "세전 순이익 기준 법인세 자동 산정 (중소기업 세율 반영)"
+    # 세션 상태 초기화 (인건비 기본값 2,400,000원 설정)
+    if 'labor_input' not in st.session_state: st.session_state.labor_input = "2,400,000"
 
     def update_labor():
         val = st.session_state.labor_widget.replace(",", "").strip()
         if val.isdigit():
             new_labor = int(val)
             st.session_state.labor_input = f"{new_labor:,}"
-            st.session_state.sev_input = f"{int(new_labor / 12):,}"
         else:
             st.session_state.labor_input = val
 
-    def update_sev():
-        val = st.session_state.sev_widget.replace(",", "").strip()
-        if val.isdigit():
-            st.session_state.sev_input = f"{int(val):,}"
-        else:
-            st.session_state.sev_input = val
-
-    def update_dep():
-        val = st.session_state.dep_widget.replace(",", "").strip()
-        if val.isdigit():
-            st.session_state.dep_input = f"{int(val):,}"
-        else:
-            st.session_state.dep_input = val
-
-    def update_maint():
-        val = st.session_state.maint_widget.replace(",", "").strip()
-        if val.isdigit():
-            st.session_state.maint_input = f"{int(val):,}"
-        else:
-            st.session_state.maint_input = val
-
-    def update_tax():
-        val = st.session_state.tax_widget.replace(",", "").strip()
-        if val.isdigit():
-            st.session_state.tax_input = f"{int(val):,}"
-        else:
-            st.session_state.tax_input = val
-
-    t_col1, t_col2, t_col3 = st.columns([1.5, 2.5, 3])
-    with t_col1: st.markdown("**구분**")
-    with t_col2: st.markdown("**연간 금액 (원)**")
-    with t_col3: st.markdown("**비고**")
-
-    st.divider()
-
-    r1_c1, r1_c2, r1_c3 = st.columns([1.5, 2.5, 3])
-    with r1_c1: st.markdown("연간 인건비")
-    with r1_c2: 
-        labor_str = st.text_input("인건비 입력", value=st.session_state.labor_input, key="labor_widget", on_change=update_labor, label_visibility="collapsed")
-    with r1_c3: 
-        labor_note = st.text_input("인건비 비고 입력", value=st.session_state.labor_note, label_visibility="collapsed")
-
+    # 인건비 파싱 및 퇴직금 자동 계산 (인건비 / 12)
     try:
-        labor_cost = int(st.session_state.labor_input.replace(",", "").strip()) if st.session_state.labor_input.replace(",", "").strip().isdigit() else 0
+        labor_cost = int(st.session_state.labor_input.replace(",", "").strip()) if st.session_state.labor_input.replace(",", "").strip().isdigit() else 2400000
     except ValueError:
-        labor_cost = 0
+        labor_cost = 2400000
 
-    r2_c1, r2_c2, r2_c3 = st.columns([1.5, 2.5, 3])
-    with r2_c1: st.markdown("연간 퇴직금")
-    with r2_c2: 
-        sev_str = st.text_input("퇴직금 입력", value=st.session_state.sev_input, key="sev_widget", on_change=update_sev, label_visibility="collapsed")
-    with r2_c3: 
-        severance_note = st.text_input("퇴직금 비고 입력", value=st.session_state.sev_note, label_visibility="collapsed")
-
-    try:
-        severance_pay = int(st.session_state.sev_input.replace(",", "").strip()) if st.session_state.sev_input.replace(",", "").strip().isdigit() else 0
-    except ValueError:
-        severance_pay = 0
-
-    r3_c1, r3_c2, r3_c3 = st.columns([1.5, 2.5, 3])
-    with r3_c1: st.markdown("연간 감가상각비")
-    with r3_c2: 
-        dep_str = st.text_input("감가상각비 입력", value=st.session_state.dep_input, key="dep_widget", on_change=update_dep, label_visibility="collapsed")
-    with r3_c3: 
-        dep_note = st.text_input("감가상각비 비고 입력", value=st.session_state.dep_note, label_visibility="collapsed")
-
-    try:
-        depreciation = int(st.session_state.dep_input.replace(",", "").strip()) if st.session_state.dep_input.replace(",", "").strip().isdigit() else 0
-    except ValueError:
-        depreciation = 0
-
-    r4_c1, r4_c2, r4_c3 = st.columns([1.5, 2.5, 3])
-    with r4_c1: st.markdown("연간 수선유지비")
-    with r4_c2: 
-        maint_str = st.text_input("수선유지비 입력", value=st.session_state.maint_input, key="maint_widget", on_change=update_maint, label_visibility="collapsed")
-    with r4_c3: 
-        maint_note = st.text_input("수선유지비 비고 입력", value=st.session_state.maint_note, label_visibility="collapsed")
-
-    try:
-        maintenance = int(st.session_state.maint_input.replace(",", "").strip()) if st.session_state.maint_input.replace(",", "").strip().isdigit() else 0
-    except ValueError:
-        maintenance = 0
-
-    r5_c1, r5_c2, r5_c3 = st.columns([1.5, 2.5, 3])
-    with r5_c1: st.markdown("대부료")
-    with r5_c2: 
-        st.markdown(f"**{total_land_rent:,.0f} 원**")
-    with r5_c3: 
-        rent_note = st.text_input("대부료 비고 입력", value=st.session_state.rent_note, label_visibility="collapsed")
-
+    auto_severance = int(labor_cost / 12)
+    depreciation = auto_depreciation
+    maintenance = auto_maintenance
     land_rent_cost = total_land_rent
 
-    partial_op_cost = labor_cost + severance_pay + depreciation + maintenance + land_rent_cost
+    # 법인세 자동 산정
+    partial_op_cost = labor_cost + auto_severance + depreciation + maintenance + land_rent_cost
     annual_taxable_income = first_year_revenue - partial_op_cost
     
     if annual_taxable_income > 0:
@@ -309,6 +207,71 @@ with tab1:
         st.session_state.tax_input = f"{calculated_tax:,}"
         st.session_state.tax_initialized = True
 
+    def update_tax():
+        val = st.session_state.tax_widget.replace(",", "").strip()
+        if val.isdigit():
+            st.session_state.tax_input = f"{int(val):,}"
+        else:
+            st.session_state.tax_input = val
+
+    if 'labor_note' not in st.session_state: st.session_state.labor_note = "전기안전관리자(대행) 인건비"
+    if 'sev_note' not in st.session_state: st.session_state.sev_note = "인건비 / 12개월"
+    if 'dep_note' not in st.session_state: st.session_state.dep_note = "총사업비 / 사업기간"
+    if 'maint_note' not in st.session_state: st.session_state.maint_note = "감가상각비의 10%"
+    if 'rent_note' not in st.session_state: st.session_state.rent_note = "공유재산 대부료 산정 (대부요율 5%, 경감률 50% 적용)"
+    if 'tax_note' not in st.session_state: st.session_state.tax_note = "세전 순이익 기준 법인세 자동 산정 (중소기업 세율 반영)"
+
+    # 테이블 헤더 구성
+    t_col1, t_col2, t_col3 = st.columns([1.5, 2.5, 3])
+    with t_col1: st.markdown("**구분**")
+    with t_col2: st.markdown("**연간 금액 (원)**")
+    with t_col3: st.markdown("**비고**")
+
+    st.divider()
+
+    # 1. 인건비
+    r1_c1, r1_c2, r1_c3 = st.columns([1.5, 2.5, 3])
+    with r1_c1: st.markdown("연간 인건비")
+    with r1_c2: 
+        labor_str = st.text_input("인건비 입력", value=st.session_state.labor_input, key="labor_widget", on_change=update_labor, label_visibility="collapsed")
+    with r1_c3: 
+        labor_note = st.text_input("인건비 비고 입력", value=st.session_state.labor_note, label_visibility="collapsed")
+
+    # 2. 퇴직금 (자동 산정 표기)
+    r2_c1, r2_c2, r2_c3 = st.columns([1.5, 2.5, 3])
+    with r2_c1: st.markdown("연간 퇴직금")
+    with r2_c2: 
+        st.markdown(f"**{auto_severance:,.0f} 원**")
+    with r2_c3: 
+        severance_note = st.text_input("퇴직금 비고 입력", value=st.session_state.sev_note, label_visibility="collapsed")
+
+    severance_pay = auto_severance
+
+    # 3. 감가상각비 (자동 산정 표기)
+    r3_c1, r3_c2, r3_c3 = st.columns([1.5, 2.5, 3])
+    with r3_c1: st.markdown("연간 감가상각비")
+    with r3_c2: 
+        st.markdown(f"**{auto_depreciation:,.0f} 원**")
+    with r3_c3: 
+        dep_note = st.text_input("감가상각비 비고 입력", value=st.session_state.dep_note, label_visibility="collapsed")
+
+    # 4. 수선유지비 (자동 산정 표기)
+    r4_c1, r4_c2, r4_c3 = st.columns([1.5, 2.5, 3])
+    with r4_c1: st.markdown("연간 수선유지비")
+    with r4_c2: 
+        st.markdown(f"**{auto_maintenance:,.0f} 원**")
+    with r4_c3: 
+        maint_note = st.text_input("수선유지비 비고 입력", value=st.session_state.maint_note, label_visibility="collapsed")
+
+    # 5. 대부료
+    r5_c1, r5_c2, r5_c3 = st.columns([1.5, 2.5, 3])
+    with r5_c1: st.markdown("대부료")
+    with r5_c2: 
+        st.markdown(f"**{total_land_rent:,.0f} 원**")
+    with r5_c3: 
+        rent_note = st.text_input("대부료 비고 입력", value=st.session_state.rent_note, label_visibility="collapsed")
+
+    # 6. 법인세
     r6_c1, r6_c2, r6_c3 = st.columns([1.5, 2.5, 3])
     with r6_c1: st.markdown("법인세")
     with r6_c2: 
