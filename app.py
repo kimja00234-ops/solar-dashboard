@@ -1,107 +1,121 @@
 import streamlit as st
 import pandas as pd
 import numpy_financial as npf
-import plotly.express as px
 
-st.set_page_config(page_title="태양광 타당성 분석 (심화)", layout="wide")
-st.title("☀️ 태양광 발전사업 타당성 심화 분석 대시보드")
-st.markdown("엑셀의 현금흐름표(인건비, 대부료, 감가상각, 법인세 등)를 완벽히 구현한 버전입니다.")
+# 웹 페이지 기본 설정
+st.set_page_config(page_title="태양광 타당성 자동 분석기", layout="wide")
+st.title("☀️ 태양광 발전사업 타당성 자동 분석 프로그램")
+st.markdown("기본 정보와 단가를 입력하면 NPV, IRR, PI 및 회수기간을 자동으로 계산합니다.")
 
 # ---------------------------------------------------------
-# 1. 사이드바 - 입력값 설정 (엑셀 '입력값' 시트 100% 반영)
+# 1. 사이드바 - 사용자 입력창 구성
 # ---------------------------------------------------------
-st.sidebar.header("1. 기본 정보 및 투자비")
+st.sidebar.header("1. 사업 기본 정보")
+project_name = st.sidebar.text_input("사업명", value="춘천 창촌리 태양광발전사업")
+location = st.sidebar.text_input("위치", value="강원특별자치도 춘천시 남산면 창촌리")
 capacity = st.sidebar.number_input("설비용량 (kW)", value=986.21)
 investment = st.sidebar.number_input("총사업비 (원)", value=1972000000, step=10000000)
-years = st.sidebar.number_input("사업기간 (년)", value=20)
-residual_value = st.sidebar.number_input("잔존가치 (원)", value=0)
+years = st.sidebar.number_input("사업기간 (년)", value=20, step=1)
 
-st.sidebar.header("2. 발전량 및 단가 가정")
-sun_hours = st.sidebar.number_input("일 평균 발전시간 (시간)", value=3.5)
-degradation = st.sidebar.number_input("연간 발전량 감소율 (%)", value=0.5) / 100.0
-smp = st.sidebar.number_input("SMP 단가 (원/kWh)", value=100.0)
-rec = st.sidebar.number_input("REC 단가 (원/kWh)", value=50.0)
-rec_weight = st.sidebar.number_input("REC 가중치", value=1.2)
+st.sidebar.header("2. 발전 및 수익 가정")
+price_per_kwh = st.sidebar.number_input("전력 판매단가 (원/kWh)", value=150.0, help="SMP와 REC가 모두 포함된 최종 판매단가")
+initial_efficiency = st.sidebar.number_input("최초 운영 패널 효율 (%)", value=99.0) / 100.0
+degradation = st.sidebar.number_input("연간 발전효율 감소율 (%)", value=0.80, format="%.2f") / 100.0
 
-st.sidebar.header("3. 연간 운영비 (O&M)")
-labor_cost = st.sidebar.number_input("인건비 (원)", value=15000000, step=1000000)
-severance_pay = st.sidebar.number_input("퇴직금 (원)", value=1250000, step=100000)
-maintenance = st.sidebar.number_input("수선유지비 (원)", value=5000000, step=100000)
-land_rent = st.sidebar.number_input("도유지 대부료 (원)", value=8000000, step=100000)
-
-st.sidebar.header("4. 재무 가정")
-corporate_tax_rate = st.sidebar.number_input("법인세율 (%)", value=19.0) / 100.0
+st.sidebar.header("3. 기타 설정")
+op_cost = st.sidebar.number_input("연간 운영비 (원)", value=0, step=1000000, help="필요시 연간 O&M 비용 입력")
 discount_rate = st.sidebar.number_input("할인율 (%)", value=4.5) / 100.0
 
 # ---------------------------------------------------------
-# 2. 계산 엔진 (엑셀 '연도별분석' 시트 완벽 구현)
+# 2. 발전량 및 현금흐름 자동 계산 로직
 # ---------------------------------------------------------
-first_year_gen = capacity * sun_hours * 365
-annual_depreciation = (investment - residual_value) / years # 정액법 감가상각
+# 1년차 발전량 = 설비용량 x 일발전시간(3.5) x 365 x 최초운영효율
+first_year_gen = capacity * 3.5 * 365 * initial_efficiency
 
-# 데이터 저장을 위한 리스트
+cash_flows = [-investment]
 data = []
-cash_flows = [-investment] # 0년차 현금흐름
+cum_cf = -investment
+cum_dcf = -investment
 
 for year in range(1, int(years) + 1):
-    # 1. 매출액 산정
+    # 연도별 발전량 (효율 감소율 반영)
     gen = first_year_gen * ((1 - degradation) ** (year - 1))
-    price_per_kwh = smp + (rec * rec_weight)
+    
+    # 매출액 및 순현금흐름 계산
     revenue = gen * price_per_kwh
+    net_cf = revenue - op_cost
     
-    # 2. 현금운영비 산정
-    total_op_cost = labor_cost + severance_pay + maintenance + land_rent
+    # 할인 현금흐름(현재가치) 계산
+    discount_factor = (1 + discount_rate) ** year
+    dcf = net_cf / discount_factor
     
-    # 3. 과세표준 및 법인세 산정 (엑셀 로직: 영업이익 = 매출액 - 현금운영비 - 감가상각비)
-    tax_base = revenue - total_op_cost - annual_depreciation
-    if tax_base < 0: tax_base = 0
-    corporate_tax = tax_base * corporate_tax_rate
+    # 누적 계산
+    cum_cf += net_cf
+    cum_dcf += dcf
     
-    # 4. 세후 프로젝트 현금흐름 = 매출액 - 현금운영비 - 법인세 + 잔존가치(마지막 해)
-    net_cf = revenue - total_op_cost - corporate_tax
-    if year == int(years):
-        net_cf += residual_value
-        
     cash_flows.append(net_cf)
     
-    # 테이블용 데이터 추가
+    # 테이블 표출을 위한 데이터 수집
     data.append([
-        year, gen, price_per_kwh, revenue, labor_cost, severance_pay, maintenance, 
-        land_rent, total_op_cost, annual_depreciation, tax_base, corporate_tax, net_cf
+        year, gen, revenue, net_cf, cum_cf, dcf, cum_dcf
     ])
 
-# ---------------------------------------------------------
-# 3. 데이터프레임 구성 및 재무 지표 도출
-# ---------------------------------------------------------
-columns = [
-    "연도", "발전량(kWh)", "판매단가(원)", "매출액(원)", "인건비(원)", "퇴직금(원)", 
-    "수선유지비(원)", "대부료(원)", "현금운영비(원)", "감가상각비(원)", 
-    "과세표준(원)", "법인세(원)", "프로젝트현금흐름(원)"
-]
-df = pd.DataFrame(data, columns=columns)
-df.insert(0, "연도", df.pop("연도")) # 연도 컬럼 위치 고정
+df = pd.DataFrame(data, columns=[
+    "연도", "발전량(kWh)", "매출액(원)", "순현금흐름(원)", 
+    "누적현금흐름(원)", "할인현금흐름(원)", "누적할인현금흐름(원)"
+])
 
-# 현금흐름 및 할인현금흐름 계산
-df["할인계수"] = [1 / ((1 + discount_rate) ** y) for y in df["연도"]]
-df["현금흐름현재가치(원)"] = df["프로젝트현금흐름(원)"] * df["할인계수"]
-df["누적현금흐름(원)"] = df["프로젝트현금흐름(원)"].cumsum() - investment
-
-# NPV, IRR 계산
+# ---------------------------------------------------------
+# 3. 핵심 재무 지표 (NPV, IRR, PI, 회수기간) 도출
+# ---------------------------------------------------------
 npv = npf.npv(discount_rate, cash_flows)
 irr = npf.irr(cash_flows) * 100 if npf.irr(cash_flows) else 0
 
-# ---------------------------------------------------------
-# 4. 대시보드 화면 출력
-# ---------------------------------------------------------
-st.subheader("💡 핵심 재무 지표")
-col1, col2 = st.columns(2)
-col1.metric("예상 NPV (순현재가치)", f"{npv:,.0f} 원")
-col2.metric("예상 IRR (내부수익률)", f"{irr:.2f} %")
+# PI (수익성 지수) = (NPV + 총투자비) / 총투자비
+pv_of_future_cf = npv + investment
+pi = pv_of_future_cf / investment if investment > 0 else 0
 
-st.subheader("📊 연도별 누적 현금흐름 및 타당성 추이")
-fig = px.bar(df, x="연도", y="프로젝트현금흐름(원)", title="프로젝트 현금흐름 추이")
-fig.add_scatter(x=df["연도"], y=df["누적현금흐름(원)"], mode='lines+markers', name="누적현금흐름")
-st.plotly_chart(fig, use_container_width=True)
+# 회수기간(Payback Period) 계산 함수
+def calculate_payback(df, cf_col, cum_col):
+    positive_mask = df[cum_col] > 0
+    if not positive_mask.any():
+        return "회수 불가"
+    
+    idx = positive_mask.idxmax()
+    if idx == 0:
+        return 0 + abs(-investment) / df.loc[idx, cf_col]
+    else:
+        prev_cum = df.loc[idx-1, cum_col]
+        current_cf = df.loc[idx, cf_col]
+        fraction = abs(prev_cum) / current_cf
+        return df.loc[idx-1, "연도"] + fraction
 
-st.subheader("📋 엑셀 연도별 분석표 (세부내역)")
-st.dataframe(df.style.format("{:,.0f}"))
+simple_payback = calculate_payback(df, "순현금흐름(원)", "누적현금흐름(원)")
+discounted_payback = calculate_payback(df, "할인현금흐름(원)", "누적할인현금흐름(원)")
+
+# ---------------------------------------------------------
+# 4. 화면 출력 (대시보드)
+# ---------------------------------------------------------
+st.markdown(f"### 📍 {project_name} ({location})")
+st.markdown(f"**1년 차 예상 발전량:** `{first_year_gen:,.0f} kWh` (설비용량 {capacity}kW × 3.5시간 × 365일 × 효율 {initial_efficiency*100}%)")
+st.divider()
+
+st.subheader("💡 타당성 분석 결과")
+col1, col2, col3, col4, col5 = st.columns(5)
+col1.metric("NPV (순현재가치)", f"{npv:,.0f} 원")
+col2.metric("IRR (내부수익률)", f"{irr:.2f} %")
+col3.metric("PI (수익성지수)", f"{pi:.3f}")
+col4.metric("단순 회수기간", f"{simple_payback:.2f} 년" if isinstance(simple_payback, float) else simple_payback)
+col5.metric("할인 회수기간", f"{discounted_payback:.2f} 년" if isinstance(discounted_payback, float) else discounted_payback)
+
+st.divider()
+st.subheader("📋 연도별 상세 데이터")
+# 소수점 및 단위 서식 지정하여 표 출력
+st.dataframe(df.style.format({
+    "발전량(kWh)": "{:,.0f}",
+    "매출액(원)": "{:,.0f}",
+    "순현금흐름(원)": "{:,.0f}",
+    "누적현금흐름(원)": "{:,.0f}",
+    "할인현금흐름(원)": "{:,.0f}",
+    "누적할인현금흐름(원)": "{:,.0f}"
+}), use_container_width=True)
