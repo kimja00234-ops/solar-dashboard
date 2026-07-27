@@ -72,11 +72,13 @@ with tab1:
 
     st.divider()
     
-    # 구역 3: 수익 가정 (수익단가 입력 및 예상 전력판매수익 자동 산출 연동)
-    st.markdown("### 🔹 수익 가정")
+    # 구역 3: 재무 및 평가 가정 (구역명 변경 및 할인율, 물가상승률 이동 배치)
+    st.markdown("### 🔹 재무 및 평가 가정")
     col5, col6 = st.columns(2)
     with col5:
         price_per_kwh = st.number_input("전력 판매단가 (원/kWh)", value=150.0, format="%.2f")
+        discount_rate = st.number_input("할인율 (%)", value=4.5, format="%.2f") / 100.0
+        inflation_rate = st.number_input("물가상승률 (%)", value=3.11, help="최근 5년(2021~2025) 평균 물가상승률 적용", format="%.2f") / 100.0
     with col6:
         # 예상 전력판매수익 산출 (기준 발전량 × 단가, 1년차 발전량 × 단가)
         base_annual_revenue = base_annual_gen * price_per_kwh
@@ -130,7 +132,7 @@ with tab2:
 
 with tab3:
     st.subheader("💸 기타 운영비용 및 재무 가정")
-    c1, c2 = st.columns(2)
+    c1, _ = st.columns(2)
     with c1:
         st.markdown("**[운영비 세부 항목]**")
         labor_str = st.text_input("인건비 (원)", value="10,000,000")
@@ -146,11 +148,6 @@ with tab3:
         except ValueError:
             labor_cost, severance_pay, maintenance, other_op_cost = 0, 0, 0, 0
             st.error("운영비 항목에 숫자만 입력해 주세요.")
-            
-    with c2:
-        st.markdown("**[재무 가정 설정]**")
-        inflation_rate = st.number_input("물가상승률 (%)", value=3.11, help="최근 5년(2021~2025) 평균 물가상승률 적용", format="%.2f") / 100.0
-        discount_rate = st.number_input("할인율 (%)", value=4.5, format="%.2f") / 100.0
 
     initial_op_cost = labor_cost + severance_pay + maintenance + total_land_rent + other_op_cost
     st.success(f"💰 **1년 차 총 운영비 (대부료 포함):** {initial_op_cost:,.0f} 원")
