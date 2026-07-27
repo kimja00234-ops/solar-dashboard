@@ -20,7 +20,45 @@ st.sidebar.markdown("💡 메인 화면의 **탭(Tab)**을 통해 입력과 분�
 st.title("☀️ 태양광 발전사업 타당성 자동 분석 프로그램")
 st.markdown("입력 항목과 분석 결과를 아래의 **탭**을 통해 각각 확인해 주세요.")
 
-tab1, tab2 = st.tabs(["📌 1. 사업 기본 정보 및 운영비·가정 입력", "📊 2. 사업성 분석 대시보드"])
+tab1, tab2, tab3 = st.tabs(["📌 1. 사업 기본 정보 및 운영비·가정 입력", "🏢 2. 부지 대부료 산정", "📊 3. 사업성 분석 대시보드"])
+
+with tab2:
+    st.subheader("🏢 공유재산(부지) 도유지 대부료 산정 (다중 필지 고려)")
+    num_parcels = st.number_input("대부 필지 수", min_value=1, max_value=10, value=2, step=1)
+    
+    parcel_data = []
+    total_land_rent = 0
+    total_land_area = 0
+
+    for i in range(int(num_parcels)):
+        st.markdown(f"**--- 필지 {i+1} 정보 ---**")
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            p_name = st.text_input(f"필지 {i+1} 지번", value=f"창촌리 610-{136 if i==0 else 72}", key=f"name_{i}")
+        with c2:
+            p_area = st.number_input(f"필지 {i+1} 면적 (㎡)", value=8000.0 if i==0 else 3557.0, key=f"area_{i}", format="%.2f")
+        with c3:
+            p_price_str = st.text_input(f"필지 {i+1} 공시지가 (원/㎡)", value="50,000" if i==0 else "45,000", key=f"price_str_{i}")
+            try:
+                p_price = float(p_price_str.replace(",", ""))
+            except ValueError:
+                p_price = 0.0
+        with c4:
+            p_rate = st.number_input(f"필지 {i+1} 대부요율 (%)", value=5.0, key=f"rate_{i}", format="%.2f") / 100.0
+        
+        p_rent = p_area * p_price * p_rate
+        total_land_rent += p_rent
+        total_land_area += p_area
+        
+        parcel_data.append({
+            "필지명": p_name,
+            "면적(㎡)": p_area,
+            "공시지가(원/㎡)": p_price,
+            "대부요율(%)": p_rate * 100,
+            "연간 대부료(원)": p_rent
+        })
+
+    st.info(f"💡 **총 부지면적:** {total_land_area:,.2f} ㎡ / **연간 대부료 합계:** {total_land_rent:,.0f} 원")
 
 with tab1:
     st.subheader("📌 사업 기본 정보 및 발전 가정 입력")
@@ -103,47 +141,7 @@ with tab1:
 
     st.divider()
 
-    # 구역 4: 공유재산(부지) 도유지 대부료 산정 (탭1로 이동 및 표 형식 통합)
-    st.markdown("### 🏢 공유재산(부지) 도유지 대부료 산정 (다중 필지 고려)")
-    num_parcels = st.number_input("대부 필지 수", min_value=1, max_value=10, value=2, step=1)
-    
-    parcel_data = []
-    total_land_rent = 0
-    total_land_area = 0
-
-    for i in range(int(num_parcels)):
-        st.markdown(f"**--- 필지 {i+1} 정보 ---**")
-        c_p1, c_p2, c_p3, c_p4 = st.columns(4)
-        with c_p1:
-            p_name = st.text_input(f"필지 {i+1} 지번", value=f"창촌리 610-{136 if i==0 else 72}", key=f"name_{i}")
-        with c_p2:
-            p_area = st.number_input(f"필지 {i+1} 면적 (㎡)", value=8000.0 if i==0 else 3557.0, key=f"area_{i}", format="%.2f")
-        with c_p3:
-            p_price_str = st.text_input(f"필지 {i+1} 공시지가 (원/㎡)", value="50,000" if i==0 else "45,000", key=f"price_str_{i}")
-            try:
-                p_price = float(p_price_str.replace(",", ""))
-            except ValueError:
-                p_price = 0.0
-        with c_p4:
-            p_rate = st.number_input(f"필지 {i+1} 대부요율 (%)", value=5.0, key=f"rate_{i}", format="%.2f") / 100.0
-        
-        p_rent = p_area * p_price * p_rate
-        total_land_rent += p_rent
-        total_land_area += p_area
-        
-        parcel_data.append({
-            "필지명": p_name,
-            "면적(㎡)": p_area,
-            "공시지가(원/㎡)": p_price,
-            "대부요율(%)": p_rate * 100,
-            "연간 대부료(원)": p_rent
-        })
-
-    st.info(f"💡 **총 부지면적:** {total_land_area:,.2f} ㎡ / **연간 대부료 합계:** {total_land_rent:,.0f} 원")
-
-    st.divider()
-
-    # 구역 5: 운영비 정보 (수선유지비 밑에 대부료 및 기타 비용 표 형식 배치)
+    # 구역 4: 운영비 정보 (연간 수선유지비 밑에 탭2 대부료 산정 결과 연동 표기)
     st.markdown("### 🔹 운영비 정보")
     st.markdown("운영비 세부 항목 및 비고를 확인하고 필요한 경우 금액을 수정해 주세요.")
 
@@ -156,14 +154,12 @@ with tab1:
     if 'sev_input' not in st.session_state: st.session_state.sev_input = f"{auto_severance_default:,}"
     if 'dep_input' not in st.session_state: st.session_state.dep_input = f"{auto_depreciation:,}"
     if 'maint_input' not in st.session_state: st.session_state.maint_input = f"{auto_maintenance:,}"
-    if 'other_input' not in st.session_state: st.session_state.other_input = "0"
 
     if 'labor_note' not in st.session_state: st.session_state.labor_note = "전기안전관리자(대행) 인건비"
     if 'sev_note' not in st.session_state: st.session_state.sev_note = "인건비 / 12개월"
     if 'dep_note' not in st.session_state: st.session_state.dep_note = "총사업비 / 사업기간"
     if 'maint_note' not in st.session_state: st.session_state.maint_note = "감가상각비의 10%"
-    if 'rent_note' not in st.session_state: st.session_state.rent_note = "공유재산(부지) 도유지 대부료 산정 결과 연동"
-    if 'other_note' not in st.session_state: st.session_state.other_note = "기타 예비비 등"
+    if 'rent_note' not in st.session_state: st.session_state.rent_note = "탭2 공유재산(부지) 도유지 대부료 산정 결과 자동 연동"
 
     def update_labor():
         val = st.session_state.labor_widget.replace(",", "").strip()
@@ -194,13 +190,6 @@ with tab1:
             st.session_state.maint_input = f"{int(val):,}"
         else:
             st.session_state.maint_input = val
-
-    def update_other():
-        val = st.session_state.other_widget.replace(",", "").strip()
-        if val.isdigit():
-            st.session_state.other_input = f"{int(val):,}"
-        else:
-            st.session_state.other_input = val
 
     # 테이블 헤더 구성
     t_col1, t_col2, t_col3 = st.columns([1.5, 2.5, 3])
@@ -262,18 +251,27 @@ with tab1:
     except ValueError:
         maintenance = 0
 
-    # 5. 대부료 (탭2에서 계산된 대부료 합계를 표 형식으로 연동 표시)
+    # 5. 대부료 (탭2의 도유지 대부료 산정 결과를 연간 수선유지비 밑에 표 형식으로 연동 표기)
     r5_c1, r5_c2, r5_c3 = st.columns([1.5, 2.5, 3])
     with r5_c1: st.markdown("대부료")
     with r5_c2: 
-        # 자동 연동되므로 읽기 전용 형태처럼 표기하거나 텍스트로 깔끔하게 표시
         st.markdown(f"**{total_land_rent:,.0f} 원**")
     with r5_c3: 
         rent_note = st.text_input("대부료 비고 입력", value=st.session_state.rent_note, label_visibility="collapsed")
 
     land_rent_cost = total_land_rent
 
-    # 6. 기타 비용
+    # 기타 비용 추가 입력 행
+    if 'other_input' not in st.session_state: st.session_state.other_input = "0"
+    if 'other_note' not in st.session_state: st.session_state.other_note = "기타 예비비 등"
+
+    def update_other():
+        val = st.session_state.other_widget.replace(",", "").strip()
+        if val.isdigit():
+            st.session_state.other_input = f"{int(val):,}"
+        else:
+            st.session_state.other_input = val
+
     r6_c1, r6_c2, r6_c3 = st.columns([1.5, 2.5, 3])
     with r6_c1: st.markdown("기타 비용")
     with r6_c2: 
@@ -341,9 +339,9 @@ simple_payback = calculate_payback(df, "순수익", "누적현금흐름")
 discounted_payback = calculate_payback(df, "할인현금흐름", "누적할인현금흐름")
 
 # ---------------------------------------------------------
-# Tab 2: 사업성 분석 대시보드
+# Tab 3: 사업성 분석 대시보드
 # ---------------------------------------------------------
-with tab2:
+with tab3:
     st.subheader("📊 사업성 분석 결과 대시보드")
     st.markdown(f"### 📍 {project_name} ({location})")
     st.markdown(f"**1년차 예상 발전량:** `{first_year_gen:,.0f} kWh` (연간 기준 발전량 × 최초 운영 패널 효율, 십의 자리 반올림)")
