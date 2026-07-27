@@ -32,27 +32,38 @@ tab1, tab2, tab3 = st.tabs([
 ])
 
 # ---------------------------------------------------------
-# Tab 1: 사업 기본 정보 및 운영비 입력 (Tab 2 연동을 위해 먼저 배치)
+# Tab 1: 사업 기본 정보 및 운영비 입력
 # ---------------------------------------------------------
 with tab1:
   st.subheader("📌 사업 기본 정보 및 발전 가정 입력")
 
+  # ✅ Tab1 부지면적 변경 시 Tab2 필지1 면적 세션 상태 자동 업데이트 함수
+  def sync_land_area():
+    val_str = st.session_state.land_area_widget.replace(",", "").strip()
+    try:
+      val = float(val_str) if val_str else 0.0
+    except ValueError:
+      val = 0.0
+    st.session_state.area_0 = val
+
   col1, col2 = st.columns(2)
   with col1:
-    # 사업명 (기본 빈값)
     project_name = st.text_input(
         "사업명", value="", placeholder="사업명을 입력하세요"
     )
 
-    # 설비용량 (기본 빈값)
     capacity_val = st.number_input(
         "설비용량 (kW)", value=None, format="%.2f", placeholder="0.00"
     )
     capacity = capacity_val if capacity_val is not None else 0.0
 
-    # 부지면적 (기본 빈값)
+    # ✅ 부지면적 입력 시 on_change 함수로 tab2 필지 1 면적 동기화
     land_area_str = st.text_input(
-        "부지면적 (㎡)", value="", placeholder="예: 11,557"
+        "부지면적 (㎡)",
+        value="",
+        key="land_area_widget",
+        on_change=sync_land_area,
+        placeholder="예: 11,557",
     )
     try:
       land_area = (
@@ -64,7 +75,6 @@ with tab1:
       land_area = 0.0
 
   with col2:
-    # 위치 (기본 빈값)
     location = st.text_input("위치", value="", placeholder="위치를 입력하세요")
 
     if "investment_input" not in st.session_state:
@@ -77,7 +87,6 @@ with tab1:
       else:
         st.session_state.investment_input = val
 
-    # 총사업비 (기본 빈값)
     investment_str = st.text_input(
         "총사업비 (원)",
         value=st.session_state.investment_input,
@@ -91,7 +100,6 @@ with tab1:
     except ValueError:
       investment = 0
 
-    # 사업기간 (기본 빈값)
     years_val = st.number_input(
         "사업기간 (년)",
         value=None,
@@ -139,7 +147,6 @@ with tab1:
   st.markdown("### 🔹 재무 및 평가 가정")
   col5, col6 = st.columns(2)
   with col5:
-    # ✅ 전력 판매단가 (기본 빈값 및 예시 문구 적용)
     price_val = st.number_input(
         "전력 판매단가 (원/kWh)",
         value=None,
@@ -173,7 +180,7 @@ with tab1:
     st.caption("1년차 예상 발전량 × 전력 판매단가")
 
 # ---------------------------------------------------------
-# Tab 2: 부지 대부료 산정 (Tab 1 면적 연동 & 대부 필지 수 기본 1개)
+# Tab 2: 부지 대부료 산정 (세션 상태 동기화)
 # ---------------------------------------------------------
 with tab2:
   st.subheader("🏢 공유재산(부지) 도유지 대부료 산정 (다중 필지 고려)")
@@ -181,7 +188,6 @@ with tab2:
       "※ 산정 공식: 공시지가 × 부지면적 × 대부요율(5%) × (1 - 경감률 50%)"
   )
 
-  # ✅ 대부 필지 수 기본값 1개로 설정
   num_parcels = st.number_input(
       "대부 필지 수", min_value=1, max_value=10, value=1, step=1
   )
@@ -189,6 +195,10 @@ with tab2:
   parcel_data = []
   total_land_rent = 0
   total_land_area = 0
+
+  # ✅ 필지 1 면적 세션 상태 초기화 (Tab1의 입력값 또는 0.0)
+  if "area_0" not in st.session_state:
+    st.session_state.area_0 = land_area
 
   for i in range(int(num_parcels)):
     st.markdown(f"**--- 필지 {i+1} 정보 ---**")
@@ -200,13 +210,12 @@ with tab2:
           key=f"name_{i}",
       )
     with c2:
-      # ✅ 필지 1인 경우 Tab 1의 부지면적(land_area)을 기본값으로 연동 (수정 가능)
-      default_area = (
-          land_area if (i == 0 and land_area > 0) else (0.0 if i == 0 else 3557.0)
-      )
+      # ✅ 필지별 key 세션 관리로 실시간 연동 및 사용자 직접 수정 가능
+      if f"area_{i}" not in st.session_state:
+        st.session_state[f"area_{i}"] = 3557.0 if i > 0 else land_area
+
       p_area = st.number_input(
           f"필지 {i+1} 면적 (㎡)",
-          value=default_area,
           key=f"area_{i}",
           format="%.2f",
       )
@@ -283,7 +292,6 @@ with tab1:
       "운영비 세부 항목 및 비고를 확인하고 필요한 경우 금액을 수정해 주세요."
   )
 
-  # 감가상각비 및 감가상각비의 5% 수선유지비 산정
   auto_depreciation = int(investment / years) if years > 0 else 0
   auto_maintenance = int(auto_depreciation * 0.05)
 
@@ -311,7 +319,6 @@ with tab1:
   maintenance_cost_1st_year = auto_maintenance
   land_rent_cost = total_land_rent
 
-  # 과세표준(세전 영업이익) = 매출액 - 현금운영비(인건비+퇴직금+수선유지비+대부료) - 감가상각비
   total_deductible_expenses = (
       labor_cost
       + auto_severance
@@ -321,7 +328,6 @@ with tab1:
   )
   annual_taxable_income = first_year_revenue - total_deductible_expenses
 
-  # 누진세율 적용 법인세 자동 계산 (2억원 이하 9%, 초과분 19%)
   if annual_taxable_income > 0:
     if annual_taxable_income <= 200000000:
       calculated_tax = int(annual_taxable_income * 0.09)
