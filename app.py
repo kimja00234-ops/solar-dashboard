@@ -32,15 +32,158 @@ tab1, tab2, tab3 = st.tabs([
 ])
 
 # ---------------------------------------------------------
-# Tab 2: 부지 대부료 산정 (필지별 산정 및 내역 테이블 포함)
+# Tab 1: 사업 기본 정보 및 운영비 입력 (Tab 2 연동을 위해 먼저 배치)
+# ---------------------------------------------------------
+with tab1:
+  st.subheader("📌 사업 기본 정보 및 발전 가정 입력")
+
+  col1, col2 = st.columns(2)
+  with col1:
+    # 사업명 (기본 빈값)
+    project_name = st.text_input(
+        "사업명", value="", placeholder="사업명을 입력하세요"
+    )
+
+    # 설비용량 (기본 빈값)
+    capacity_val = st.number_input(
+        "설비용량 (kW)", value=None, format="%.2f", placeholder="0.00"
+    )
+    capacity = capacity_val if capacity_val is not None else 0.0
+
+    # 부지면적 (기본 빈값)
+    land_area_str = st.text_input(
+        "부지면적 (㎡)", value="", placeholder="예: 11,557"
+    )
+    try:
+      land_area = (
+          float(land_area_str.replace(",", "").strip())
+          if land_area_str.strip()
+          else 0.0
+      )
+    except ValueError:
+      land_area = 0.0
+
+  with col2:
+    # 위치 (기본 빈값)
+    location = st.text_input("위치", value="", placeholder="위치를 입력하세요")
+
+    if "investment_input" not in st.session_state:
+      st.session_state.investment_input = ""
+
+    def update_investment():
+      val = st.session_state.investment_widget.replace(",", "").strip()
+      if val.isdigit():
+        st.session_state.investment_input = f"{int(val):,}"
+      else:
+        st.session_state.investment_input = val
+
+    # 총사업비 (기본 빈값)
+    investment_str = st.text_input(
+        "총사업비 (원)",
+        value=st.session_state.investment_input,
+        key="investment_widget",
+        on_change=update_investment,
+        placeholder="예: 1,972,000,000",
+    )
+    try:
+      clean_inv = investment_str.replace(",", "").strip()
+      investment = int(clean_inv) if clean_inv.isdigit() else 0
+    except ValueError:
+      investment = 0
+
+    # 사업기간 (기본 빈값)
+    years_val = st.number_input(
+        "사업기간 (년)",
+        value=None,
+        min_value=1,
+        max_value=50,
+        step=1,
+        placeholder="20",
+    )
+    years = int(years_val) if years_val is not None else 0
+
+  st.divider()
+
+  st.markdown("### 🔹 발전 가정량")
+  col3, col4 = st.columns(2)
+  with col3:
+    sun_hours = st.number_input(
+        "일일 평균 발전시간 (h/day)", value=3.5, format="%.2f"
+    )
+    initial_efficiency = (
+        st.number_input(
+            "최초 운영 패널 효율 (%) (기본값 적용)", value=99.0, format="%.2f"
+        )
+        / 100.0
+    )
+    degradation = (
+        st.number_input(
+            "연간 발전효율 감소율 (%) (기본값 적용)", value=0.80, format="%.2f"
+        )
+        / 100.0
+    )
+  with col4:
+    base_annual_gen = capacity * sun_hours * 365
+    st.markdown("**연간 기준 발전량**")
+    st.markdown(f"### `{round(base_annual_gen, -2):,.0f} kWh`")
+    st.caption("설비용량 × 일일 평균 발전시간 × 365")
+
+    raw_first_year_gen = base_annual_gen * initial_efficiency
+    first_year_gen = round(raw_first_year_gen, -2)
+    st.markdown("**1년차 예상 발전량**")
+    st.markdown(f"### `{first_year_gen:,.0f} kWh`")
+    st.caption("연간 기준 발전량 × 최초 운영 패널 효율")
+
+  st.divider()
+
+  st.markdown("### 🔹 재무 및 평가 가정")
+  col5, col6 = st.columns(2)
+  with col5:
+    # ✅ 전력 판매단가 (기본 빈값 및 예시 문구 적용)
+    price_val = st.number_input(
+        "전력 판매단가 (원/kWh)",
+        value=None,
+        format="%.2f",
+        placeholder="예: 171.00",
+    )
+    price_per_kwh = price_val if price_val is not None else 0.0
+
+    discount_rate = (
+        st.number_input("할인율 (%)", value=4.5, format="%.2f") / 100.0
+    )
+    inflation_rate = (
+        st.number_input(
+            "물가상승률 (%)",
+            value=3.11,
+            help="최근 5년 평균 물가상승률 적용",
+            format="%.2f",
+        )
+        / 100.0
+    )
+  with col6:
+    base_annual_revenue = base_annual_gen * price_per_kwh
+    first_year_revenue = first_year_gen * price_per_kwh
+
+    st.markdown("**예상 전력판매수익 (기준)**")
+    st.markdown(f"### `{base_annual_revenue:,.0f} 원`")
+    st.caption("연간 기준 발전량 × 전력 판매단가")
+
+    st.markdown("**1년차 예상 전력판매수익**")
+    st.markdown(f"### `{first_year_revenue:,.0f} 원`")
+    st.caption("1년차 예상 발전량 × 전력 판매단가")
+
+# ---------------------------------------------------------
+# Tab 2: 부지 대부료 산정 (Tab 1 면적 연동 & 대부 필지 수 기본 1개)
 # ---------------------------------------------------------
 with tab2:
   st.subheader("🏢 공유재산(부지) 도유지 대부료 산정 (다중 필지 고려)")
   st.caption(
       "※ 산정 공식: 공시지가 × 부지면적 × 대부요율(5%) × (1 - 경감률 50%)"
   )
+
+  # ✅ 대부 필지 수 기본값 1개로 설정
   num_parcels = st.number_input(
-      "대부 필지 수", min_value=1, max_value=10, value=2, step=1
+      "대부 필지 수", min_value=1, max_value=10, value=1, step=1
   )
 
   parcel_data = []
@@ -57,9 +200,13 @@ with tab2:
           key=f"name_{i}",
       )
     with c2:
+      # ✅ 필지 1인 경우 Tab 1의 부지면적(land_area)을 기본값으로 연동 (수정 가능)
+      default_area = (
+          land_area if (i == 0 and land_area > 0) else (0.0 if i == 0 else 3557.0)
+      )
       p_area = st.number_input(
           f"필지 {i+1} 면적 (㎡)",
-          value=8000.0 if i == 0 else 3557.0,
+          value=default_area,
           key=f"area_{i}",
           format="%.2f",
       )
@@ -127,148 +274,16 @@ with tab2:
   )
 
 # ---------------------------------------------------------
-# Tab 1: 사업 기본 정보 및 운영비 입력 (빈값 입력 상태 반영)
+# Tab 1 잔여 영역: 운영비 정보 세부 처리
 # ---------------------------------------------------------
 with tab1:
-  st.subheader("📌 사업 기본 정보 및 발전 가정 입력")
-
-  col1, col2 = st.columns(2)
-  with col1:
-    # ✅ 사업명 (기본 빈값)
-    project_name = st.text_input(
-        "사업명", value="", placeholder="사업명을 입력하세요"
-    )
-
-    # ✅ 설비용량 (기본 빈값)
-    capacity_val = st.number_input(
-        "설비용량 (kW)", value=None, format="%.2f", placeholder="0.00"
-    )
-    capacity = capacity_val if capacity_val is not None else 0.0
-
-    # ✅ 부지면적 (기본 빈값)
-    land_area_str = st.text_input(
-        "부지면적 (㎡)", value="", placeholder="예: 11,557"
-    )
-    try:
-      land_area = (
-          float(land_area_str.replace(",", "").strip())
-          if land_area_str.strip()
-          else 0.0
-      )
-    except ValueError:
-      land_area = 0.0
-
-  with col2:
-    # ✅ 위치 (기본 빈값)
-    location = st.text_input("위치", value="", placeholder="위치를 입력하세요")
-
-    if "investment_input" not in st.session_state:
-      st.session_state.investment_input = ""
-
-    def update_investment():
-      val = st.session_state.investment_widget.replace(",", "").strip()
-      if val.isdigit():
-        st.session_state.investment_input = f"{int(val):,}"
-      else:
-        st.session_state.investment_input = val
-
-    # ✅ 총사업비 (기본 빈값)
-    investment_str = st.text_input(
-        "총사업비 (원)",
-        value=st.session_state.investment_input,
-        key="investment_widget",
-        on_change=update_investment,
-        placeholder="예: 1,972,000,000",
-    )
-    try:
-      clean_inv = investment_str.replace(",", "").strip()
-      investment = int(clean_inv) if clean_inv.isdigit() else 0
-    except ValueError:
-      investment = 0
-
-    # ✅ 사업기간 (기본 빈값)
-    years_val = st.number_input(
-        "사업기간 (년)",
-        value=None,
-        min_value=1,
-        max_value=50,
-        step=1,
-        placeholder="20",
-    )
-    years = int(years_val) if years_val is not None else 0
-
   st.divider()
-
-  st.markdown("### 🔹 발전 가정량")
-  col3, col4 = st.columns(2)
-  with col3:
-    sun_hours = st.number_input(
-        "일일 평균 발전시간 (h/day)", value=3.5, format="%.2f"
-    )
-    initial_efficiency = (
-        st.number_input(
-            "최초 운영 패널 효율 (%) (기본값 적용)", value=99.0, format="%.2f"
-        )
-        / 100.0
-    )
-    degradation = (
-        st.number_input(
-            "연간 발전효율 감소율 (%) (기본값 적용)", value=0.80, format="%.2f"
-        )
-        / 100.0
-    )
-  with col4:
-    base_annual_gen = capacity * sun_hours * 365
-    st.markdown("**연간 기준 발전량**")
-    st.markdown(f"### `{round(base_annual_gen, -2):,.0f} kWh`")
-    st.caption("설비용량 × 일일 평균 발전시간 × 365")
-
-    raw_first_year_gen = base_annual_gen * initial_efficiency
-    first_year_gen = round(raw_first_year_gen, -2)
-    st.markdown("**1년차 예상 발전량**")
-    st.markdown(f"### `{first_year_gen:,.0f} kWh`")
-    st.caption("연간 기준 발전량 × 최초 운영 패널 효율")
-
-  st.divider()
-
-  st.markdown("### 🔹 재무 및 평가 가정")
-  col5, col6 = st.columns(2)
-  with col5:
-    price_per_kwh = st.number_input(
-        "전력 판매단가 (원/kWh)", value=171.0, format="%.2f"
-    )
-    discount_rate = (
-        st.number_input("할인율 (%)", value=4.5, format="%.2f") / 100.0
-    )
-    inflation_rate = (
-        st.number_input(
-            "물가상승률 (%)",
-            value=3.11,
-            help="최근 5년 평균 물가상승률 적용",
-            format="%.2f",
-        )
-        / 100.0
-    )
-  with col6:
-    base_annual_revenue = base_annual_gen * price_per_kwh
-    first_year_revenue = first_year_gen * price_per_kwh
-
-    st.markdown("**예상 전력판매수익 (기준)**")
-    st.markdown(f"### `{base_annual_revenue:,.0f} 원`")
-    st.caption("연간 기준 발전량 × 전력 판매단가")
-
-    st.markdown("**1년차 예상 전력판매수익**")
-    st.markdown(f"### `{first_year_revenue:,.0f} 원`")
-    st.caption("1년차 예상 발전량 × 전력 판매단가")
-
-  st.divider()
-
   st.markdown("### 🔹 운영비 정보")
   st.markdown(
       "운영비 세부 항목 및 비고를 확인하고 필요한 경우 금액을 수정해 주세요."
   )
 
-  # 감가상각비 및 감가상각비의 5% 수선유지비 산정 (사업기간이 0일 경우 예외 처리)
+  # 감가상각비 및 감가상각비의 5% 수선유지비 산정
   auto_depreciation = int(investment / years) if years > 0 else 0
   auto_maintenance = int(auto_depreciation * 0.05)
 
@@ -595,7 +610,6 @@ df_sheet3["할인 회수기간(년)"] = discounted_pb_list
 # ---------------------------------------------------------
 df_display = df_sheet3.copy()
 
-# 합산 대상 수치 컬럼들 (운영 기간 1~20년 합산)
 sum_cols = [
     "발전량(kWh)",
     "매출액(원)",
@@ -611,7 +625,6 @@ sum_cols = [
     "현금흐름 현재가치(원)",
 ]
 
-# 합계 데이터 생성
 sum_row = {col: "" for col in df_display.columns}
 sum_row["연도"] = "합계"
 
@@ -661,7 +674,6 @@ with tab3:
   st.divider()
   st.subheader("📋 연도별 현금흐름 분석 상세 테이블")
 
-  # 서식 적용 함수 정의
   def format_cell(val, fmt="{:,.0f}"):
     if isinstance(val, (int, float)) and not pd.isna(val):
       return fmt.format(val)
