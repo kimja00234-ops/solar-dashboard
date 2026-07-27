@@ -197,7 +197,7 @@ with tab1:
   with col4:
     base_annual_gen = capacity * sun_hours * 365
     st.markdown("**연간 기준 발전량**")
-    st.markdown(f"### `{round(base_annual_gen, -2):,.0f} kWh` shadow")
+    st.markdown(f"### `{round(base_annual_gen, -2):,.0f} kWh`")
     st.caption("설비용량 × 일일 평균 발전시간 × 365")
 
     raw_first_year_gen = base_annual_gen * initial_efficiency
@@ -245,27 +245,9 @@ with tab1:
       "운영비 세부 항목 및 비고를 확인하고 필요한 경우 금액을 수정해 주세요."
   )
 
+  # ✅ 감가상각비 및 감가상각비 5% 수선유지비 산정
   auto_depreciation = int(investment / years) if years > 0 else 0
-
-  # 1년 차 기준 수선유지비 (기본값 설정 - 필요시 사용자가 다이렉트로 수정 가능)
-  if "maint_input" not in st.session_state:
-    st.session_state.maint_input = "4,929,750"  # 기준 수선유지비 1년차 금액
-
-  def update_maint():
-    val = st.session_state.maint_widget.replace(",", "").strip()
-    if val.isdigit():
-      st.session_state.maint_input = f"{int(val):,}"
-    else:
-      st.session_state.maint_input = val
-
-  try:
-    base_maint_cost = (
-        int(st.session_state.maint_input.replace(",", "").strip())
-        if st.session_state.maint_input.replace(",", "").strip().isdigit()
-        else 4929750
-    )
-  except ValueError:
-    base_maint_cost = 4929750
+  auto_maintenance = int(auto_depreciation * 0.05)  # 감가상각비의 5% 적용
 
   if "labor_input" not in st.session_state:
     st.session_state.labor_input = "2,400,000"
@@ -288,13 +270,14 @@ with tab1:
 
   auto_severance = int(labor_cost / 12)
   depreciation = auto_depreciation
+  maintenance_cost_1st_year = auto_maintenance
   land_rent_cost = total_land_rent
 
   partial_op_cost = (
       labor_cost
       + auto_severance
       + depreciation
-      + base_maint_cost
+      + maintenance_cost_1st_year
       + land_rent_cost
   )
   annual_taxable_income = first_year_revenue - partial_op_cost
@@ -328,7 +311,7 @@ with tab1:
     st.session_state.dep_note = "총사업비 / 사업기간"
   if "maint_note" not in st.session_state:
     st.session_state.maint_note = (
-        "1년차 기준 수선유지비 (이후 연도별 물가상승률만 반영)"
+        "감가상각비의 5% 적용 (이후 연도별 물가상승률 적용)"
     )
   if "rent_note" not in st.session_state:
     st.session_state.rent_note = (
@@ -397,13 +380,7 @@ with tab1:
   with r4_c1:
     st.markdown("연간 수선유지비")
   with r4_c2:
-    maint_str = st.text_input(
-        "수선유지비 입력",
-        value=st.session_state.maint_input,
-        key="maint_widget",
-        on_change=update_maint,
-        label_visibility="collapsed",
-    )
+    st.markdown(f"**{maintenance_cost_1st_year:,.0f} 원**")
   with r4_c3:
     maint_note = st.text_input(
         "수선유지비 비고 입력",
@@ -454,7 +431,7 @@ with tab1:
       labor_cost
       + severance_pay
       + depreciation
-      + base_maint_cost
+      + maintenance_cost_1st_year
       + land_rent_cost
       + corporate_tax
   )
@@ -463,7 +440,7 @@ with tab1:
   )
 
 # ---------------------------------------------------------
-# 공통 계산 엔진 (Sheet 3 연도별 분석 - 순수 물가상승률 적용)
+# 공통 계산 엔진 (Sheet 3 연도별 분석)
 # ---------------------------------------------------------
 cash_flows = [-investment]
 analysis_data = []
@@ -491,8 +468,6 @@ for year in range(0, int(years) + 1):
         -investment,
         -investment,
         -investment,
-        0,
-        0,
     ])
   else:
     gen = first_year_gen * ((1 - degradation) ** (year - 1))
@@ -502,8 +477,8 @@ for year in range(0, int(years) + 1):
     labor = labor_cost * inflation_factor
     severance = severance_pay * inflation_factor
 
-    # ✅ 핵심 수정: 수선유지비는 감가상각비에 종속되지 않고 '1년차 기준 금액 × 물가상승률'로만 계산
-    maint = base_maint_cost * inflation_factor
+    # ✅ 감가상각비 5% 기준 1년차 수선유지비에 물가상승률 반영
+    maint = maintenance_cost_1st_year * inflation_factor
 
     land_rent = total_land_rent * inflation_factor
 
@@ -546,8 +521,6 @@ for year in range(0, int(years) + 1):
         dcf,
         cum_cf,
         cum_dcf,
-        0,
-        0,
     ])
 
 df_sheet3 = pd.DataFrame(
@@ -570,8 +543,6 @@ df_sheet3 = pd.DataFrame(
         "현금흐름 현재가치(원)",
         "누적 현금흐름(원)",
         "누적 할인현금흐름(원)",
-        "단순 회수기간(년)",
-        "할인 회수기간(년)",
     ],
 )
 
@@ -581,24 +552,45 @@ pv_of_future_cf = npv + investment
 pi = pv_of_future_cf / investment if investment > 0 else 0
 
 
-def calculate_payback(df, cf_col, cum_col):
+# ✅ 회수기간 및 회수년도 매핑 함수
+def get_payback_info(df, cf_col, cum_col):
   pos_mask = df[cum_col] > 0
   if not pos_mask.any():
-    return "회수 불가"
+    return None, None
   idx = pos_mask.idxmax()
   if idx == 0:
-    return 0.0
+    return 0.0, 0
   prev_cum = df.loc[idx - 1, cum_col]
   curr_cf = df.loc[idx, cf_col]
-  return df.loc[idx - 1, "연도"] + (abs(prev_cum) / curr_cf)
+  payback_val = df.loc[idx - 1, "연도"] + (abs(prev_cum) / curr_cf)
+  payback_year = int(df.loc[idx, "연도"])
+  return payback_val, payback_year
 
 
-simple_payback = calculate_payback(
+simple_payback, simple_payback_year = get_payback_info(
     df_sheet3, "프로젝트 현금흐름(원)", "누적 현금흐름(원)"
 )
-discounted_payback = calculate_payback(
+discounted_payback, discounted_payback_year = get_payback_info(
     df_sheet3, "현금흐름 현재가치(원)", "누적 할인현금흐름(원)"
 )
+
+# ✅ 테이블용 연도별 회수기간 컬럼 추가 (해당하는 회수 년도에만 값 표시)
+simple_pb_list = []
+discounted_pb_list = []
+
+for y in df_sheet3["연도"]:
+  if simple_payback_year is not None and y == simple_payback_year:
+    simple_pb_list.append(f"{simple_payback:.2f}년")
+  else:
+    simple_pb_list.append("-")
+
+  if discounted_payback_year is not None and y == discounted_payback_year:
+    discounted_pb_list.append(f"{discounted_payback:.2f}년")
+  else:
+    discounted_pb_list.append("-")
+
+df_sheet3["단순 회수기간(년)"] = simple_pb_list
+df_sheet3["할인 회수기간(년)"] = discounted_pb_list
 
 # ---------------------------------------------------------
 # Tab 3: 연도별 분석 (Sheet 3 연동 대시보드)
@@ -623,16 +615,16 @@ with tab3:
       "단순 회수기간",
       (
           f"{simple_payback:.2f} 년"
-          if isinstance(simple_payback, float)
-          else simple_payback
+          if simple_payback is not None
+          else "회수 불가"
       ),
   )
   col5.metric(
       "할인 회수기간",
       (
           f"{discounted_payback:.2f} 년"
-          if isinstance(discounted_payback, float)
-          else discounted_payback
+          if discounted_payback is not None
+          else "회수 불가"
       ),
   )
 
