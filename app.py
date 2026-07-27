@@ -7,68 +7,93 @@ import plotly.express as px
 st.set_page_config(page_title="태양광 발전사업 통합 대시보드", layout="wide")
 
 # ---------------------------------------------------------
-# 사이드바: 페이지 선택 및 공통 입력값
+# 사이드바: 대시보드 페이지 선택 메뉴만 깔끔하게 배치
 # ---------------------------------------------------------
 st.sidebar.title("☀️ 태양광 발전사업 분석")
 page = st.sidebar.radio("이동할 대시보드 선택", ["1. 사업성 종합 분석", "2. 수익·지출·순수익 시각화"])
-
 st.sidebar.divider()
-st.sidebar.header("📝 공통 사업 기본 정보")
-project_name = st.sidebar.text_input("사업명", value="춘천 창촌리 태양광발전사업")
-location = st.sidebar.text_input("위치", value="강원특별자치도 춘천시 남산면 창촌리")
-capacity = st.sidebar.number_input("설비용량 (kW)", value=986.21)
-investment = st.sidebar.number_input("총사업비 (원)", value=1972000000, step=10000000)
-years = st.sidebar.number_input("사업기간 (년)", value=20, step=1)
-
-st.sidebar.header("📈 발전 및 수익 가정")
-price_per_kwh = st.sidebar.number_input("전력 판매단가 (원/kWh)", value=150.0)
-initial_efficiency = st.sidebar.number_input("최초 운영 패널 효율 (%)", value=99.0) / 100.0
-degradation = st.sidebar.number_input("연간 발전효율 감소율 (%)", value=0.80, format="%.2f") / 100.0
+st.sidebar.markdown("💡 메인 화면의 **탭(Tab)**을 통해 대부료와 운영비용을 각각 입력하실 수 있습니다.")
 
 # ---------------------------------------------------------
-# 사이드바: 다중 필지 대부료 산정 기능 (신규 추가)
+# 메인 화면: 탭(Tab) 구조를 이용한 입력 영역 분리
 # ---------------------------------------------------------
-st.sidebar.header("🏢 공유재산(부지) 대부료 산정")
-num_parcels = st.sidebar.number_input("대부 필지 수", min_value=1, max_value=10, value=2, step=1)
+st.title("☀️ 태양광 발전사업 타당성 자동 분석 프로그램")
+st.markdown("입력 항목이 길어지지 않도록 아래의 **탭**을 클릭하여 항목별로 입력해 주세요.")
 
-parcel_data = []
-total_land_rent = 0
-total_land_area = 0
+tab1, tab2, tab3 = st.tabs(["📌 1. 사업 기본 정보", "🏢 2. 부지 대부료 산정", "💸 3. 운영비 및 재무 가정"])
 
-for i in range(int(num_parcels)):
-    st.sidebar.markdown(f"**--- 필지 {i+1} 정보 ---**")
-    p_name = st.sidebar.text_input(f"필지 {i+1} 이름/지번", value=f"창촌리 610-{136 if i==0 else 72}")
-    p_area = st.sidebar.number_input(f"필지 {i+1} 면적 (㎡)", value=8000.0 if i==0 else 3557.0, key=f"area_{i}")
-    p_price = st.sidebar.number_input(f"필지 {i+1} 개별공시지가 (원/㎡)", value=50000.0 if i==0 else 45000.0, key=f"price_{i}")
-    p_rate = st.sidebar.number_input(f"필지 {i+1} 대부요율 (%)", value=5.0, key=f"rate_{i}") / 100.0
+with tab1:
+    st.subheader("📌 사업 기본 정보 및 발전 수익 가정")
+    col1, col2 = st.columns(2)
+    with col1:
+        project_name = st.text_input("사업명", value="춘천 창촌리 태양광발전사업")
+        location = st.text_input("위치", value="강원특별자치도 춘천시 남산면 창촌리")
+        capacity = st.number_input("설비용량 (kW)", value=986.21)
+    with col2:
+        investment = st.number_input("총사업비 (원)", value=1972000000, step=10000000)
+        years = st.number_input("사업기간 (년)", value=20, step=1)
+        price_per_kwh = st.number_input("전력 판매단가 (원/kWh)", value=150.0)
+
+    col3, col4 = st.columns(2)
+    with col3:
+        initial_efficiency = st.number_input("최초 운영 패널 효율 (%)", value=99.0) / 100.0
+    with col4:
+        degradation = st.number_input("연간 발전효율 감소율 (%)", value=0.80, format="%.2f") / 100.0
+
+with tab2:
+    st.subheader("🏢 공유재산(부지) 도유지 대부료 산정 (다중 필지 고려)")
+    num_parcels = st.number_input("대부 필지 수", min_value=1, max_value=10, value=2, step=1)
     
-    # 필지별 연간 대부료 = 면적 × 개별공시지가 × 대부요율
-    p_rent = p_area * p_price * p_rate
-    total_land_rent += p_rent
-    total_land_area += p_area
-    
-    parcel_data.append({
-        "필지명": p_name,
-        "면적(㎡)": p_area,
-        "공시지가(원/㎡)": p_price,
-        "대부요율(%)": p_rate * 100,
-        "연간 대부료(원)": p_rent
-    })
+    parcel_data = []
+    total_land_rent = 0
+    total_land_area = 0
 
-st.sidebar.info(f"💡 **총 부지면적:** {total_land_area:,.2f} ㎡ / **연간 대부료 합계:** {total_land_rent:,.0f} 원")
+    # 필지 입력 폼을 가로 2개 컬럼으로 보기 좋게 배치
+    for i in range(int(num_parcels)):
+        st.markdown(f"**--- 필지 {i+1} 정보 ---**")
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            p_name = st.text_input(f"필지 {i+1} 지번", value=f"창촌리 610-{136 if i==0 else 72}", key=f"name_{i}")
+        with c2:
+            p_area = st.number_input(f"필지 {i+1} 면적 (㎡)", value=8000.0 if i==0 else 3557.0, key=f"area_{i}")
+        with c3:
+            p_price = st.number_input(f"필지 {i+1} 공시지가 (원/㎡)", value=50000.0 if i==0 else 45000.0, key=f"price_{i}")
+        with c4:
+            p_rate = st.number_input(f"필지 {i+1} 대부요율 (%)", value=5.0, key=f"rate_{i}") / 100.0
+        
+        p_rent = p_area * p_price * p_rate
+        total_land_rent += p_rent
+        total_land_area += p_area
+        
+        parcel_data.append({
+            "필지명": p_name,
+            "면적(㎡)": p_area,
+            "공시지가(원/㎡)": p_price,
+            "대부요율(%)": p_rate * 100,
+            "연간 대부료(원)": p_rent
+        })
 
-st.sidebar.header("💸 기타 운영비용 (1년 차 기준)")
-labor_cost = st.sidebar.number_input("인건비 (원)", value=10000000, step=1000000)
-severance_pay = st.sidebar.number_input("퇴직금 (원)", value=1000000, step=100000)
-maintenance = st.sidebar.number_input("수선유지비 (원)", value=4000000, step=500000)
-other_op_cost = st.sidebar.number_input("기타 운영비 (원)", value=0, step=500000)
+    st.info(f"💡 **총 부지면적:** {total_land_area:,.2f} ㎡ / **연간 대부료 합계:** {total_land_rent:,.0f} 원")
 
-# 세부 운영비 총합 (대부료 자동 포함)
-initial_op_cost = labor_cost + severance_pay + maintenance + total_land_rent + other_op_cost
+with tab3:
+    st.subheader("💸 기타 운영비용 및 재무 가정")
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown("**[운영비 세부 항목]**")
+        labor_cost = st.number_input("인건비 (원)", value=10000000, step=1000000)
+        severance_pay = st.number_input("퇴직금 (원)", value=1000000, step=100000)
+        maintenance = st.number_input("수선유지비 (원)", value=4000000, step=500000)
+        other_op_cost = st.number_input("기타 운영비 (원)", value=0, step=500000)
+    with c2:
+        st.markdown("**[재무 가정 설정]**")
+        inflation_rate = st.number_input("물가상승률 (%)", value=3.11, help="최근 5년(2021~2025) 평균 물가상승률 적용") / 100.0
+        discount_rate = st.number_input("할인율 (%)", value=4.5) / 100.0
 
-st.sidebar.header("📊 재무 가정")
-inflation_rate = st.sidebar.number_input("물가상승률 (%)", value=3.11, help="최근 5년(2021~2025) 평균 물가상승률 적용") / 100.0
-discount_rate = st.sidebar.number_input("할인율 (%)", value=4.5) / 100.0
+    # 세부 운영비 총합 (대부료 자동 포함)
+    initial_op_cost = labor_cost + severance_pay + maintenance + total_land_rent + other_op_cost
+    st.success(f"💰 **1년 차 총 운영비 (대부료 포함):** {initial_op_cost:,.0f} 원")
+
+st.divider()
 
 # ---------------------------------------------------------
 # 공통 계산 엔진 (현금흐름 및 지표 산출)
@@ -138,7 +163,7 @@ if page == "1. 사업성 종합 분석":
         "대부요율(%)": "{:.2f}%",
         "연간 대부료(원)": "{:,.0f}"
     }), use_container_width=True)
-    st.markdown(f"**총 대부료 합계 (1년 차):** `{total_land_rent:,.0f} 원` (이 금액이 연간 운영비에 자동 반영됩니다)")
+    st.markdown(f"**총 대부료 합계 (1년 차):** `{total_land_rent:,.0f} 원` (이 금액이 운영비에 자동 반영됩니다)")
     st.divider()
 
     st.subheader("💡 핵심 재무 지표")
