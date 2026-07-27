@@ -161,7 +161,7 @@ with tab1:
     st.markdown("운영비 세부 항목 및 비고를 확인하고 필요한 경우 금액을 수정해 주세요.")
 
     auto_depreciation = int(investment / years) if years > 0 else 0
-    auto_maintenance = int(auto_depreciation * 0.10)
+    auto_maintenance = int(auto_depreciation * 0.05) # 원본 엑셀 기준 감가상각비의 5% 적용 (4,929,750원 연동)
 
     if 'labor_input' not in st.session_state: st.session_state.labor_input = "2,400,000"
 
@@ -208,7 +208,7 @@ with tab1:
     if 'labor_note' not in st.session_state: st.session_state.labor_note = "전기안전관리자(대행) 인건비"
     if 'sev_note' not in st.session_state: st.session_state.sev_note = "인건비 / 12개월"
     if 'dep_note' not in st.session_state: st.session_state.dep_note = "총사업비 / 사업기간"
-    if 'maint_note' not in st.session_state: st.session_state.maint_note = "감가상각비의 10%"
+    if 'maint_note' not in st.session_state: st.session_state.maint_note = "감가상각비의 5% (원본 엑셀 기준)"
     if 'rent_note' not in st.session_state: st.session_state.rent_note = "공유재산 대부료 산정 (대부요율 5%, 경감률 50% 적용)"
     if 'tax_note' not in st.session_state: st.session_state.tax_note = "세전 순이익 기준 법인세 자동 산정 (중소기업 세율 반영)"
 
