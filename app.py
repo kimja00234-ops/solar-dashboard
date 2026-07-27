@@ -52,7 +52,6 @@ with tab2:
         with c5:
             p_discount = st.number_input(f"필지 {i+1} 경감률 (%)", value=50.0, key=f"discount_{i}", format="%.2f") / 100.0
         
-        # 신규 대부료 산정 공식 적용: 공시지가 × 부지면적 × 대부요율 × (1 - 경감률)
         p_rent = p_area * p_price * p_rate * (1 - p_discount)
         total_land_rent += p_rent
         total_land_area += p_area
@@ -89,7 +88,6 @@ with tab1:
     with col2:
         location = st.text_input("위치", value="강원특별자치도 춘천시 남산면 창촌리")
         
-        # 총사업비 실시간 콤마 포맷팅 처리
         if 'investment_input' not in st.session_state:
             st.session_state.investment_input = "1,972,000,000"
             
@@ -152,7 +150,7 @@ with tab1:
 
     st.divider()
 
-    # 구역 4: 운영비 정보
+    # 구역 4: 운영비 정보 (기타비용 -> 법인세 자동 산정 변경)
     st.markdown("### 🔹 운영비 정보")
     st.markdown("운영비 세부 항목 및 비고를 확인하고 필요한 경우 금액을 수정해 주세요.")
 
@@ -160,17 +158,35 @@ with tab1:
     auto_maintenance = int(auto_depreciation * 0.10)
     auto_severance_default = int(10000000 / 12)
 
+    # 1년차 법인세 사전 산정을 위한 임시 영업이익 계산 (매출액 - (인건비+퇴직금+감가상각비+수선유지비+대부료))
+    # 법인세율은 중소기업 기준 과세표준 2억원 이하 9%, 초과 시 구간별 적용 (여기서는 대표적으로 9% 또는 기본 10% 적용 구조 구현)
+    # 대한민국 법인세율 기본 (과세표준 2억 이하 9%, 2억~20억 19%, 20억 초과 21% 등)
+    # 1년차 예상 영업이익 산정
+    temp_op_cost_wo_tax = 10000000 + auto_severance_default + auto_depreciation + auto_maintenance + total_land_rent
+    temp_operating_profit = first_year_revenue - temp_op_cost_wo_tax
+    
+    # 간이 법인세 산정 (과세표준 2억 이하 9% 기준, 이익이 양수일 때만 산정)
+    if temp_operating_profit > 0:
+        if temp_operating_profit <= 200000000:
+            auto_tax = int(temp_operating_profit * 0.09)
+        else:
+            auto_tax = int(200000000 * 0.09 + (temp_operating_profit - 200000000) * 0.19)
+    else:
+        auto_tax = 0
+
     # 세션 상태 초기화
     if 'labor_input' not in st.session_state: st.session_state.labor_input = "10,000,000"
     if 'sev_input' not in st.session_state: st.session_state.sev_input = f"{auto_severance_default:,}"
     if 'dep_input' not in st.session_state: st.session_state.dep_input = f"{auto_depreciation:,}"
     if 'maint_input' not in st.session_state: st.session_state.maint_input = f"{auto_maintenance:,}"
+    if 'tax_input' not in st.session_state: st.session_state.tax_input = f"{auto_tax:,}"
 
     if 'labor_note' not in st.session_state: st.session_state.labor_note = "전기안전관리자(대행) 인건비"
     if 'sev_note' not in st.session_state: st.session_state.sev_note = "인건비 / 12개월"
     if 'dep_note' not in st.session_state: st.session_state.dep_note = "총사업비 / 사업기간"
     if 'maint_note' not in st.session_state: st.session_state.maint_note = "감가상각비의 10%"
     if 'rent_note' not in st.session_state: st.session_state.rent_note = "공유재산 대부료 산정 (대부요율 5%, 경감률 50% 적용)"
+    if 'tax_note' not in st.session_state: st.session_state.tax_note = "세전 순이익 기준 법인세 자동 산정 (중소기업 세율 반영)"
 
     def update_labor():
         val = st.session_state.labor_widget.replace(",", "").strip()
@@ -201,6 +217,13 @@ with tab1:
             st.session_state.maint_input = f"{int(val):,}"
         else:
             st.session_state.maint_input = val
+
+    def update_tax():
+        val = st.session_state.tax_widget.replace(",", "").strip()
+        if val.isdigit():
+            st.session_state.tax_input = f"{int(val):,}"
+        else:
+            st.session_state.tax_input = val
 
     # 테이블 헤더 구성
     t_col1, t_col2, t_col3 = st.columns([1.5, 2.5, 3])
@@ -262,7 +285,7 @@ with tab1:
     except ValueError:
         maintenance = 0
 
-    # 5. 대부료 (탭2의 도유지 대부료 산정 결과를 연간 수선유지비 밑에 표 형식으로 연동 표기)
+    # 5. 대부료
     r5_c1, r5_c2, r5_c3 = st.columns([1.5, 2.5, 3])
     with r5_c1: st.markdown("대부료")
     with r5_c2: 
@@ -272,32 +295,39 @@ with tab1:
 
     land_rent_cost = total_land_rent
 
-    # 6. 기타 비용
-    if 'other_input' not in st.session_state: st.session_state.other_input = "0"
-    if 'other_note' not in st.session_state: st.session_state.other_note = "기타 예비비 등"
-
-    def update_other():
-        val = st.session_state.other_widget.replace(",", "").strip()
-        if val.isdigit():
-            st.session_state.other_input = f"{int(val):,}"
+    # 6. 법인세 (기타비용 대체 및 자동 산정 연동)
+    # 매년 발생하는 순이익(매출액 - 운영비(법인세 제외))을 기준으로 법인세 자동 산정
+    partial_op_cost = labor_cost + severance_pay + depreciation + maintenance + land_rent_cost
+    annual_taxable_income = first_year_revenue - partial_op_cost
+    
+    if annual_taxable_income > 0:
+        if annual_taxable_income <= 200000000:
+            calculated_tax = int(annual_taxable_income * 0.09)
         else:
-            st.session_state.other_input = val
+            calculated_tax = int(200000000 * 0.09 + (annual_taxable_income - 200000000) * 0.19)
+    else:
+        calculated_tax = 0
+
+    # 사용자가 임의로 수정할 수도 있도록 자동 산정된 값을 기본값으로 반영
+    if 'tax_initialized' not in st.session_state:
+        st.session_state.tax_input = f"{calculated_tax:,}"
+        st.session_state.tax_initialized = True
 
     r6_c1, r6_c2, r6_c3 = st.columns([1.5, 2.5, 3])
-    with r6_c1: st.markdown("기타 비용")
+    with r6_c1: st.markdown("법인세")
     with r6_c2: 
-        other_str = st.text_input("기타 비용 입력", value=st.session_state.other_input, key="other_widget", on_change=update_other, label_visibility="collapsed")
+        tax_str = st.text_input("법인세 입력", value=st.session_state.tax_input, key="tax_widget", on_change=update_tax, label_visibility="collapsed")
     with r6_c3: 
-        other_note = st.text_input("기타 비용 비고 입력", value=st.session_state.other_note, label_visibility="collapsed")
+        tax_note = st.text_input("법인세 비고 입력", value=st.session_state.tax_note, label_visibility="collapsed")
 
     try:
-        other_op_cost = int(st.session_state.other_input.replace(",", "").strip()) if st.session_state.other_input.replace(",", "").strip().isdigit() else 0
+        corporate_tax = int(st.session_state.tax_input.replace(",", "").strip()) if st.session_state.tax_input.replace(",", "").strip().isdigit() else calculated_tax
     except ValueError:
-        other_op_cost = 0
+        corporate_tax = calculated_tax
 
-    # 총 운영비 합계 산정
-    initial_op_cost = labor_cost + severance_pay + depreciation + maintenance + land_rent_cost + other_op_cost
-    st.success(f"💰 **1년 차 총 운영비 합계 (대부료 포함):** {initial_op_cost:,.0f} 원")
+    # 총 운영비 합계 산정 (법인세 포함)
+    initial_op_cost = labor_cost + severance_pay + depreciation + maintenance + land_rent_cost + corporate_tax
+    st.success(f"💰 **1년 차 총 운영비 합계 (대부료 및 법인세 포함):** {initial_op_cost:,.0f} 원")
 
 # ---------------------------------------------------------
 # 공통 계산 엔진 (현금흐름 및 지표 산출)
@@ -310,6 +340,8 @@ cum_dcf = -investment
 for year in range(1, int(years) + 1):
     gen = round(first_year_gen * ((1 - degradation) ** (year - 1)), -1)
     revenue = gen * price_per_kwh
+    
+    # 매년 운영비 산정 (물가상승률 반영)
     current_op_cost = initial_op_cost * ((1 + inflation_rate) ** (year - 1))
     net_cf = revenue - current_op_cost
     
