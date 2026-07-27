@@ -60,15 +60,15 @@ with tab1:
         # 연간 기준 발전량 (효율 미반영 기본 산출)
         base_annual_gen = capacity * sun_hours * 365
         st.markdown(f"**연간 기준 발전량**")
-        st.markdown(f"### `{round(base_annual_gen, -1):,.0f} kWh`")
-        st.caption("설비용량 × 일일 평균 발전시간 × 365 (십의 자리 반올림)")
+        st.markdown(f"### `{round(base_annual_gen, -2):,.0f} kWh`")
+        st.caption("설비용량 × 일일 평균 발전시간 × 365")
         
         # 1년차 예상 발전량 (최초 운영 패널 효율 반영)
         raw_first_year_gen = base_annual_gen * initial_efficiency
-        first_year_gen = round(raw_first_year_gen, -1)
+        first_year_gen = round(raw_first_year_gen, -2)
         st.markdown(f"**1년차 예상 발전량**")
         st.markdown(f"### `{first_year_gen:,.0f} kWh`")
-        st.caption("연간 기준 발전량 × 최초 운영 패널 효율 (십의 자리 반올림)")
+        st.caption("연간 기준 발전량 × 최초 운영 패널 효율")
 
     st.divider()
     
