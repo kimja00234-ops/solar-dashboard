@@ -22,8 +22,12 @@ st.markdown("입력 항목과 분석 결과를 아래의 **탭**을 통해 각�
 
 tab1, tab2, tab3 = st.tabs(["📌 1. 사업 기본 정보 및 운영비·가정 입력", "🏢 2. 부지 대부료 산정", "📊 3. 사업성 분석 대시보드"])
 
+# ---------------------------------------------------------
+# Tab 2: 부지 대부료 산정 (Tab 1 운영비 표 연동을 위해 먼저 실행)
+# ---------------------------------------------------------
 with tab2:
     st.subheader("🏢 공유재산(부지) 도유지 대부료 산정 (다중 필지 고려)")
+    st.caption("※ 산정 공식: 공시지가 × 부지면적 × 대부요율(5%) × (1 - 경감률 50%)")
     num_parcels = st.number_input("대부 필지 수", min_value=1, max_value=10, value=2, step=1)
     
     parcel_data = []
@@ -32,7 +36,7 @@ with tab2:
 
     for i in range(int(num_parcels)):
         st.markdown(f"**--- 필지 {i+1} 정보 ---**")
-        c1, c2, c3, c4 = st.columns(4)
+        c1, c2, c3, c4, c5 = st.columns(5)
         with c1:
             p_name = st.text_input(f"필지 {i+1} 지번", value=f"창촌리 610-{136 if i==0 else 72}", key=f"name_{i}")
         with c2:
@@ -45,8 +49,11 @@ with tab2:
                 p_price = 0.0
         with c4:
             p_rate = st.number_input(f"필지 {i+1} 대부요율 (%)", value=5.0, key=f"rate_{i}", format="%.2f") / 100.0
+        with c5:
+            p_discount = st.number_input(f"필지 {i+1} 경감률 (%)", value=50.0, key=f"discount_{i}", format="%.2f") / 100.0
         
-        p_rent = p_area * p_price * p_rate
+        # 신규 대부료 산정 공식 적용: 공시지가 × 부지면적 × 대부요율 × (1 - 경감률)
+        p_rent = p_area * p_price * p_rate * (1 - p_discount)
         total_land_rent += p_rent
         total_land_area += p_area
         
@@ -55,11 +62,15 @@ with tab2:
             "면적(㎡)": p_area,
             "공시지가(원/㎡)": p_price,
             "대부요율(%)": p_rate * 100,
+            "경감률(%)": p_discount * 100,
             "연간 대부료(원)": p_rent
         })
 
-    st.info(f"💡 **총 부지면적:** {total_land_area:,.2f} ㎡ / **연간 대부료 합계:** {total_land_rent:,.0f} 원")
+    st.info(f"💡 **총 부지면적:** {total_land_area:,.2f} ㎡ / **연간 대부료 합계 (경감률 반영):** {total_land_rent:,.0f} 원")
 
+# ---------------------------------------------------------
+# Tab 1: 사업 기본 정보 및 운영비 입력
+# ---------------------------------------------------------
 with tab1:
     st.subheader("📌 사업 기본 정보 및 발전 가정 입력")
     
@@ -141,7 +152,7 @@ with tab1:
 
     st.divider()
 
-    # 구역 4: 운영비 정보 (연간 수선유지비 밑에 탭2 대부료 산정 결과 연동 표기)
+    # 구역 4: 운영비 정보
     st.markdown("### 🔹 운영비 정보")
     st.markdown("운영비 세부 항목 및 비고를 확인하고 필요한 경우 금액을 수정해 주세요.")
 
@@ -159,7 +170,7 @@ with tab1:
     if 'sev_note' not in st.session_state: st.session_state.sev_note = "인건비 / 12개월"
     if 'dep_note' not in st.session_state: st.session_state.dep_note = "총사업비 / 사업기간"
     if 'maint_note' not in st.session_state: st.session_state.maint_note = "감가상각비의 10%"
-    if 'rent_note' not in st.session_state: st.session_state.rent_note = "탭2 공유재산(부지) 도유지 대부료 산정 결과 자동 연동"
+    if 'rent_note' not in st.session_state: st.session_state.rent_note = "공유재산 대부료 산정 (대부요율 5%, 경감률 50% 적용)"
 
     def update_labor():
         val = st.session_state.labor_widget.replace(",", "").strip()
@@ -261,7 +272,7 @@ with tab1:
 
     land_rent_cost = total_land_rent
 
-    # 기타 비용 추가 입력 행
+    # 6. 기타 비용
     if 'other_input' not in st.session_state: st.session_state.other_input = "0"
     if 'other_note' not in st.session_state: st.session_state.other_note = "기타 예비비 등"
 
@@ -353,6 +364,7 @@ with tab3:
         "면적(㎡)": "{:,.2f}",
         "공시지가(원/㎡)": "{:,.0f}",
         "대부요율(%)": "{:.2f}%",
+        "경감률(%)": "{:.2f}%",
         "연간 대부료(원)": "{:,.0f}"
     }), use_container_width=True)
     st.markdown(f"**총 대부료 합계 (1년 차):** `{total_land_rent:,.0f} 원` (운영비에 자동 반영됨)")
