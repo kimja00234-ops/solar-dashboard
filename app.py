@@ -23,7 +23,7 @@ initial_efficiency = st.sidebar.number_input("최초 운영 패널 효율 (%)", 
 degradation = st.sidebar.number_input("연간 발전효율 감소율 (%)", value=0.80, format="%.2f") / 100.0
 
 st.sidebar.header("3. 재무 가정")
-inflation_rate = st.sidebar.number_input("물가상승률 (%)", value=3.2, help="최근 5년(2021~2025) 평균 물가상승률 추정치") / 100.0
+inflation_rate = st.sidebar.number_input("물가상승률 (%)", value=3.11, help="최근 5년(2021~2025) 평균 물가상승률 적용") / 100.0
 op_cost = st.sidebar.number_input("초기 연간 운영비 (원)", value=15000000, step=1000000, help="매년 설정한 물가상승률만큼 운영비가 증가합니다.")
 discount_rate = st.sidebar.number_input("할인율 (%)", value=4.5) / 100.0
 
