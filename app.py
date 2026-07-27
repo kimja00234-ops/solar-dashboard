@@ -12,7 +12,7 @@ st.set_page_config(page_title="태양광 발전사업 통합 대시보드", layo
 st.sidebar.title("☀️ 태양광 발전사업 분석")
 page = st.sidebar.radio("이동할 대시보드 선택", ["1. 사업성 종합 분석", "2. 수익·지출·순수익 시각화"])
 st.sidebar.divider()
-st.sidebar.markdown("💡 메인 화면의 **탭(Tab)**을 통해 대부료와 운영비용을 각각 입력하실 수 있습니다.")
+st.sidebar.markdown("💡 메인 화면의 **탭(Tab)**을 통해 세부 항목을 각각 입력하실 수 있습니다.")
 
 # ---------------------------------------------------------
 # 메인 화면: 탭(Tab) 구조를 이용한 입력 영역 분리
@@ -23,7 +23,10 @@ st.markdown("입력 항목이 길어지지 않도록 아래의 **탭**을 클릭
 tab1, tab2, tab3 = st.tabs(["📌 1. 사업 기본 정보", "🏢 2. 부지 대부료 산정", "💸 3. 운영비 및 재무 가정"])
 
 with tab1:
-    st.subheader("📌 사업 기본 정보 및 발전 수익 가정")
+    st.subheader("📌 사업 기본 정보 및 발전 수익 가정 입력")
+    
+    # 구역 1: 사업 기본 정보
+    st.markdown("### 🔹 사업 기본 정보")
     col1, col2 = st.columns(2)
     with col1:
         project_name = st.text_input("사업명", value="춘천 창촌리 태양광발전사업")
@@ -32,13 +35,17 @@ with tab1:
     with col2:
         investment = st.number_input("총사업비 (원)", value=1972000000, step=10000000)
         years = st.number_input("사업기간 (년)", value=20, step=1)
-        price_per_kwh = st.number_input("전력 판매단가 (원/kWh)", value=150.0)
 
+    st.divider()
+
+    # 구역 2: 발전 및 수익 가정
+    st.markdown("### 🔹 발전 및 수익 가정")
     col3, col4 = st.columns(2)
     with col3:
-        initial_efficiency = st.number_input("최초 운영 패널 효율 (%)", value=99.0) / 100.0
+        price_per_kwh = st.number_input("전력 판매단가 (원/kWh)", value=150.0)
+        initial_efficiency = st.number_input("최초 운영 패널 효율 (%) (기본값 적용)", value=99.0) / 100.0
     with col4:
-        degradation = st.number_input("연간 발전효율 감소율 (%)", value=0.80, format="%.2f") / 100.0
+        degradation = st.number_input("연간 발전효율 감소율 (%) (기본값 적용)", value=0.80, format="%.2f") / 100.0
 
 with tab2:
     st.subheader("🏢 공유재산(부지) 도유지 대부료 산정 (다중 필지 고려)")
@@ -48,7 +55,6 @@ with tab2:
     total_land_rent = 0
     total_land_area = 0
 
-    # 필지 입력 폼을 가로 2개 컬럼으로 보기 좋게 배치
     for i in range(int(num_parcels)):
         st.markdown(f"**--- 필지 {i+1} 정보 ---**")
         c1, c2, c3, c4 = st.columns(4)
@@ -89,7 +95,6 @@ with tab3:
         inflation_rate = st.number_input("물가상승률 (%)", value=3.11, help="최근 5년(2021~2025) 평균 물가상승률 적용") / 100.0
         discount_rate = st.number_input("할인율 (%)", value=4.5) / 100.0
 
-    # 세부 운영비 총합 (대부료 자동 포함)
     initial_op_cost = labor_cost + severance_pay + maintenance + total_land_rent + other_op_cost
     st.success(f"💰 **1년 차 총 운영비 (대부료 포함):** {initial_op_cost:,.0f} 원")
 
@@ -106,9 +111,9 @@ cum_dcf = -investment
 
 for year in range(1, int(years) + 1):
     gen = first_year_gen * ((1 - degradation) ** (year - 1))
-    revenue = gen * price_per_kwh  # 수익
-    current_op_cost = initial_op_cost * ((1 + inflation_rate) ** (year - 1))  # 지출 (운영비)
-    net_cf = revenue - current_op_cost  # 순수익 (현금흐름)
+    revenue = gen * price_per_kwh
+    current_op_cost = initial_op_cost * ((1 + inflation_rate) ** (year - 1))
+    net_cf = revenue - current_op_cost
     
     discount_factor = (1 + discount_rate) ** year
     dcf = net_cf / discount_factor
