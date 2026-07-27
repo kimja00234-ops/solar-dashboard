@@ -28,7 +28,7 @@ degradation = st.sidebar.number_input("연간 발전효율 감소율 (%)", value
 # ---------------------------------------------------------
 # 사이드바: 다중 필지 대부료 산정 기능 (신규 추가)
 # ---------------------------------------------------------
-st.sidebar.header("🏢 도유지(부지) 대부료 산정")
+st.sidebar.header("🏢 공유재산(부지) 대부료 산정")
 num_parcels = st.sidebar.number_input("대부 필지 수", min_value=1, max_value=10, value=2, step=1)
 
 parcel_data = []
