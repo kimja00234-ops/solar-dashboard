@@ -103,7 +103,7 @@ with tab1:
 
     st.divider()
 
-    # 구역 4: 운영비 정보 (자동 콤마 포맷팅 콜백 적용)
+    # 구역 4: 운영비 정보 (st.number_input으로 완벽하게 원단위 기호 및 콤마 처리 보장)
     st.markdown("### 🔹 운영비 정보")
     st.markdown("운영비 세부 항목 및 비고를 확인하고 필요한 경우 금액을 수정해 주세요.")
 
@@ -111,18 +111,14 @@ with tab1:
     auto_maintenance = int(auto_depreciation * 0.10)
     
     # 세션 상태 초기화
-    if 'labor_input' not in st.session_state: st.session_state.labor_input = "10,000,000"
+    if 'labor_val' not in st.session_state: st.session_state.labor_val = 10000000
     if 'labor_note' not in st.session_state: st.session_state.labor_note = "전기안전관리자(대행) 인건비"
     if 'sev_note' not in st.session_state: st.session_state.sev_note = "인건비 / 12개월"
     if 'dep_note' not in st.session_state: st.session_state.dep_note = "총사업비 / 사업기간"
     if 'maint_note' not in st.session_state: st.session_state.maint_note = "감가상각비의 10%"
 
-    def update_labor():
-        val = st.session_state.labor_widget.replace(",", "").strip()
-        if val.isdigit():
-            st.session_state.labor_input = f"{int(val):,}"
-        else:
-            st.session_state.labor_input = val
+    current_labor = int(st.session_state.labor_val)
+    auto_severance = int(current_labor / 12)
 
     # 테이블 헤더 구성
     t_col1, t_col2, t_col3 = st.columns([1.5, 2.5, 3])
@@ -136,81 +132,41 @@ with tab1:
     r1_c1, r1_c2, r1_c3 = st.columns([1.5, 2.5, 3])
     with r1_c1: st.markdown("연간 인건비")
     with r1_c2: 
-        labor_str = st.text_input("인건비 입력", value=st.session_state.labor_input, key="labor_widget", on_change=update_labor, label_visibility="collapsed")
+        st.session_state.labor_val = st.number_input("인건비 입력", value=int(st.session_state.labor_val), step=1000000, format="%d", label_visibility="collapsed")
     with r1_c3: 
         labor_note = st.text_input("인건비 비고 입력", value=st.session_state.labor_note, label_visibility="collapsed")
 
-    try:
-        labor_cost = int(st.session_state.labor_input.replace(",", "").strip()) if st.session_state.labor_input.replace(",", "").strip().isdigit() else 0
-    except ValueError:
-        labor_cost = 0
+    labor_cost = int(st.session_state.labor_val)
 
     # 2. 퇴직금
-    auto_severance = int(labor_cost / 12)
-    if 'sev_input' not in st.session_state: st.session_state.sev_input = f"{auto_severance:,}"
-
-    def update_sev():
-        val = st.session_state.sev_widget.replace(",", "").strip()
-        if val.isdigit():
-            st.session_state.sev_input = f"{int(val):,}"
-        else:
-            st.session_state.sev_input = val
-
     r2_c1, r2_c2, r2_c3 = st.columns([1.5, 2.5, 3])
     with r2_c1: st.markdown("연간 퇴직금")
     with r2_c2: 
-        sev_str = st.text_input("퇴직금 입력", value=f"{auto_severance:,}", key="sev_widget", on_change=update_sev, label_visibility="collapsed")
+        sev_val = st.number_input("퇴직금 입력", value=auto_severance, step=100000, format="%d", label_visibility="collapsed")
     with r2_c3: 
         severance_note = st.text_input("퇴직금 비고 입력", value=st.session_state.sev_note, label_visibility="collapsed")
 
-    try:
-        severance_pay = int(sev_str.replace(",", "").strip()) if sev_str.replace(",", "").strip().isdigit() else 0
-    except ValueError:
-        severance_pay = 0
+    severance_pay = int(sev_val)
 
     # 3. 감가상각비
-    if 'dep_input' not in st.session_state: st.session_state.dep_input = f"{auto_depreciation:,}"
-
-    def update_dep():
-        val = st.session_state.dep_widget.replace(",", "").strip()
-        if val.isdigit():
-            st.session_state.dep_input = f"{int(val):,}"
-        else:
-            st.session_state.dep_input = val
-
     r3_c1, r3_c2, r3_c3 = st.columns([1.5, 2.5, 3])
     with r3_c1: st.markdown("연간 감가상각비")
     with r3_c2: 
-        dep_str = st.text_input("감가상각비 입력", value=f"{auto_depreciation:,}", key="dep_widget", on_change=update_dep, label_visibility="collapsed")
+        dep_val = st.number_input("감가상각비 입력", value=auto_depreciation, step=1000000, format="%d", label_visibility="collapsed")
     with r3_c3: 
         dep_note = st.text_input("감가상각비 비고 입력", value=st.session_state.dep_note, label_visibility="collapsed")
 
-    try:
-        depreciation = int(dep_str.replace(",", "").strip()) if dep_str.replace(",", "").strip().isdigit() else 0
-    except ValueError:
-        depreciation = 0
+    depreciation = int(dep_val)
 
     # 4. 수선유지비
-    if 'maint_input' not in st.session_state: st.session_state.maint_input = f"{auto_maintenance:,}"
-
-    def update_maint():
-        val = st.session_state.maint_widget.replace(",", "").strip()
-        if val.isdigit():
-            st.session_state.maint_input = f"{int(val):,}"
-        else:
-            st.session_state.maint_input = val
-
     r4_c1, r4_c2, r4_c3 = st.columns([1.5, 2.5, 3])
     with r4_c1: st.markdown("연간 수선유지비")
     with r4_c2: 
-        maint_str = st.text_input("수선유지비 입력", value=f"{auto_maintenance:,}", key="maint_widget", on_change=update_maint, label_visibility="collapsed")
+        maint_val = st.number_input("수선유지비 입력", value=auto_maintenance, step=500000, format="%d", label_visibility="collapsed")
     with r4_c3: 
         maint_note = st.text_input("수선유지비 비고 입력", value=st.session_state.maint_note, label_visibility="collapsed")
 
-    try:
-        maintenance = int(maint_str.replace(",", "").strip()) if maint_str.replace(",", "").strip().isdigit() else 0
-    except ValueError:
-        maintenance = 0
+    maintenance = int(maint_val)
 
 with tab2:
     st.subheader("🏢 공유재산(부지) 도유지 대부료 산정 (다중 필지 고려)")
@@ -253,22 +209,10 @@ with tab2:
     st.divider()
     st.subheader("💸 기타 비용 입력")
     
-    if 'other_input' not in st.session_state: st.session_state.other_input = "0"
-
-    def update_other():
-        val = st.session_state.other_widget.replace(",", "").strip()
-        if val.isdigit():
-            st.session_state.other_input = f"{int(val):,}"
-        else:
-            st.session_state.other_input = val
-
     c_op5, c_note5 = st.columns([2, 2])
     with c_op5:
-        other_str = st.text_input("기타 비용 입력 (원)", value=st.session_state.other_input, key="other_widget", on_change=update_other)
-        try:
-            other_op_cost = int(st.session_state.other_input.replace(",", "").strip()) if st.session_state.other_input.replace(",", "").strip().isdigit() else 0
-        except ValueError:
-            other_op_cost = 0
+        other_val = st.number_input("기타 비용 입력 (원)", value=0, step=500000, format="%d")
+        other_op_cost = int(other_val)
     with c_note5:
         other_note = st.text_input("기타 비용 비고", value="기타 예비비 등")
 
@@ -354,7 +298,7 @@ with tab3:
     col2.metric("IRR (내부수익률)", f"{irr:.2f} %")
     col3.metric("PI (수익성지수)", f"{pi:.3f}")
     col4.metric("단순 회수기간", f"{simple_payback:.2f} 년" if isinstance(simple_payback, float) else simple_payback)
-    col5.metric("할인 회수기간", f"{discounted_payback:.2f} 년" if isinstance(discounted_payback, float) else discounted_payback)
+    col5.metric("할인 회수기간", f"{discounted_payback:.2f} 년" if isinstance(discounted_payback, float) else discounted_paybox if 'discounted_paybox' in locals() else discounted_payback)
 
     st.divider()
     st.subheader("📋 연도별 상세 데이터")
@@ -385,7 +329,7 @@ if page == "2. 수익·지출·순수익 시각화":
 
     fig = px.bar(
         df_melted, 
-        x="연d", 
+        x="연도", 
         y="금액(원)", 
         color="구분", 
         barmode="group",
@@ -409,4 +353,4 @@ if page == "2. 수익·지출·순수익 시각화":
         title="연도별 순수익 및 누적 현금흐름 흐름"
     )
     fig_line.update_layout(xaxis_title="운영 연도", yaxis_title="금액 (원)", legend_title="지표")
-    st.plotly_chart(fig_line, use_container_width=Type_UNSPECIFIED if False else True)
+    st.plotly_chart(fig_line, use_container_width=True)
