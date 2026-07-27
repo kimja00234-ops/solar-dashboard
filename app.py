@@ -33,8 +33,14 @@ with tab1:
         location = st.text_input("위치", value="강원특별자치도 춘천시 남산면 창촌리")
         capacity = st.number_input("설비용량 (kW)", value=986.21, format="%.2f")
     with col2:
-        investment = st.number_input("총사업비 (원)", value=1972000000, step=10000000, format="%d")
-        st.caption(f"👉 입력된 총사업비: **{investment:,.0f} 원**")
+        # 텍스트 박스로 천단위 콤마 실시간 입력 구현
+        investment_str = st.text_input("총사업비 (원)", value="1,972,000,000")
+        try:
+            investment = int(investment_str.replace(",", ""))
+        except ValueError:
+            investment = 0
+            st.error("숫자만 입력해 주세요.")
+            
         years = st.number_input("사업기간 (년)", value=20, step=1)
 
     st.divider()
@@ -64,8 +70,11 @@ with tab2:
         with c2:
             p_area = st.number_input(f"필지 {i+1} 면적 (㎡)", value=8000.0 if i==0 else 3557.0, key=f"area_{i}", format="%.2f")
         with c3:
-            p_price = st.number_input(f"필지 {i+1} 공시지가 (원/㎡)", value=50000.0 if i==0 else 45000.0, key=f"price_{i}", format="%.2f")
-            st.caption(f"공시지가: {p_price:,.0f} 원")
+            p_price_str = st.text_input(f"필지 {i+1} 공시지가 (원/㎡)", value="50,000" if i==0 else "45,000", key=f"price_str_{i}")
+            try:
+                p_price = float(p_price_str.replace(",", ""))
+            except ValueError:
+                p_price = 0.0
         with c4:
             p_rate = st.number_input(f"필지 {i+1} 대부요율 (%)", value=5.0, key=f"rate_{i}", format="%.2f") / 100.0
         
@@ -88,10 +97,21 @@ with tab3:
     c1, c2 = st.columns(2)
     with c1:
         st.markdown("**[운영비 세부 항목]**")
-        labor_cost = st.number_input("인건비 (원)", value=10000000, step=1000000, format="%d")
-        severance_pay = st.number_input("퇴직금 (원)", value=1000000, step=100000, format="%d")
-        maintenance = st.number_input("수선유지비 (원)", value=4000000, step=500000, format="%d")
-        other_op_cost = st.number_input("기타 운영비 (원)", value=0, step=500000, format="%d")
+        
+        labor_str = st.text_input("인건비 (원)", value="10,000,000")
+        severance_str = st.text_input("퇴직금 (원)", value="1,000,000")
+        maint_str = st.text_input("수선유지비 (원)", value="4,000,000")
+        other_str = st.text_input("기타 운영비 (원)", value="0")
+        
+        try:
+            labor_cost = int(labor_str.replace(",", ""))
+            severance_pay = int(severance_str.replace(",", ""))
+            maintenance = int(maint_str.replace(",", ""))
+            other_op_cost = int(other_str.replace(",", ""))
+        except ValueError:
+            labor_cost, severance_pay, maintenance, other_op_cost = 0, 0, 0, 0
+            st.error("운영비 항목에 숫자만 입력해 주세요.")
+            
     with c2:
         st.markdown("**[재무 가정 설정]**")
         inflation_rate = st.number_input("물가상승률 (%)", value=3.11, help="최근 5년(2021~2025) 평균 물가상승률 적용", format="%.2f") / 100.0
