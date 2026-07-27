@@ -25,14 +25,46 @@ price_per_kwh = st.sidebar.number_input("전력 판매단가 (원/kWh)", value=1
 initial_efficiency = st.sidebar.number_input("최초 운영 패널 효율 (%)", value=99.0) / 100.0
 degradation = st.sidebar.number_input("연간 발전효율 감소율 (%)", value=0.80, format="%.2f") / 100.0
 
-st.sidebar.header("💸 세부 운영비용 (1년 차 기준)")
+# ---------------------------------------------------------
+# 사이드바: 다중 필지 대부료 산정 기능 (신규 추가)
+# ---------------------------------------------------------
+st.sidebar.header("🏢 도유지(부지) 대부료 산정")
+num_parcels = st.sidebar.number_input("대부 필지 수", min_value=1, max_value=10, value=2, step=1)
+
+parcel_data = []
+total_land_rent = 0
+total_land_area = 0
+
+for i in range(int(num_parcels)):
+    st.sidebar.markdown(f"**--- 필지 {i+1} 정보 ---**")
+    p_name = st.sidebar.text_input(f"필지 {i+1} 이름/지번", value=f"창촌리 610-{136 if i==0 else 72}")
+    p_area = st.sidebar.number_input(f"필지 {i+1} 면적 (㎡)", value=8000.0 if i==0 else 3557.0, key=f"area_{i}")
+    p_price = st.sidebar.number_input(f"필지 {i+1} 개별공시지가 (원/㎡)", value=50000.0 if i==0 else 45000.0, key=f"price_{i}")
+    p_rate = st.sidebar.number_input(f"필지 {i+1} 대부요율 (%)", value=5.0, key=f"rate_{i}") / 100.0
+    
+    # 필지별 연간 대부료 = 면적 × 개별공시지가 × 대부요율
+    p_rent = p_area * p_price * p_rate
+    total_land_rent += p_rent
+    total_land_area += p_area
+    
+    parcel_data.append({
+        "필지명": p_name,
+        "면적(㎡)": p_area,
+        "공시지가(원/㎡)": p_price,
+        "대부요율(%)": p_rate * 100,
+        "연간 대부료(원)": p_rent
+    })
+
+st.sidebar.info(f"💡 **총 부지면적:** {total_land_area:,.2f} ㎡ / **연간 대부료 합계:** {total_land_rent:,.0f} 원")
+
+st.sidebar.header("💸 기타 운영비용 (1년 차 기준)")
 labor_cost = st.sidebar.number_input("인건비 (원)", value=10000000, step=1000000)
 severance_pay = st.sidebar.number_input("퇴직금 (원)", value=1000000, step=100000)
 maintenance = st.sidebar.number_input("수선유지비 (원)", value=4000000, step=500000)
-land_rent = st.sidebar.number_input("도유지 대부료 (원)", value=0, step=500000)
 other_op_cost = st.sidebar.number_input("기타 운영비 (원)", value=0, step=500000)
 
-initial_op_cost = labor_cost + severance_pay + maintenance + land_rent + other_op_cost
+# 세부 운영비 총합 (대부료 자동 포함)
+initial_op_cost = labor_cost + severance_pay + maintenance + total_land_rent + other_op_cost
 
 st.sidebar.header("📊 재무 가정")
 inflation_rate = st.sidebar.number_input("물가상승률 (%)", value=3.11, help="최근 5년(2021~2025) 평균 물가상승률 적용") / 100.0
@@ -98,6 +130,17 @@ if page == "1. 사업성 종합 분석":
     st.markdown(f"**1년 차 예상 발전량:** `{first_year_gen:,.0f} kWh` (설비용량 {capacity}kW × 3.5시간 × 365일)")
     st.divider()
 
+    st.subheader("🏢 다중 필지 대부료 산정 내역")
+    df_parcels = pd.DataFrame(parcel_data)
+    st.dataframe(df_parcels.style.format({
+        "면적(㎡)": "{:,.2f}",
+        "공시지가(원/㎡)": "{:,.0f}",
+        "대부요율(%)": "{:.2f}%",
+        "연간 대부료(원)": "{:,.0f}"
+    }), use_container_width=True)
+    st.markdown(f"**총 대부료 합계 (1년 차):** `{total_land_rent:,.0f} 원` (이 금액이 연간 운영비에 자동 반영됩니다)")
+    st.divider()
+
     st.subheader("💡 핵심 재무 지표")
     col1, col2, col3, col4, col5 = st.columns(5)
     npv_millions = npv / 1_000_000
@@ -121,14 +164,13 @@ if page == "1. 사업성 종합 분석":
     }), use_container_width=True)
 
 # ---------------------------------------------------------
-# 페이지 2: 수익·지출·순수익 시각화 대시보드 (신규 추가)
+# 페이지 2: 수익·지출·순수익 시각화 대시보드
 # ---------------------------------------------------------
 elif page == "2. 수익·지출·순수익 시각화":
     st.title("📊 수익 · 지출 · 순수익 한눈에 보기")
-    st.markdown("매년 발생하는 발전 수익, 물가상승이 반영된 지출(운영비), 그리고 최종 순수익의 흐름을 시각적으로 비교합니다.")
+    st.markdown("매년 발생하는 발전 수익, 대부료 및 물가상승이 반영된 지출(운영비), 그리고 최종 순수익의 흐름을 시각적으로 비교합니다.")
     st.divider()
 
-    # 데이터를 그래프용으로 변환 (melt)
     df_melted = df.melt(
         id_vars=["연도"], 
         value_vars=["수익(매출액)", "지출(운영비)", "순수익"],
@@ -136,7 +178,6 @@ elif page == "2. 수익·지출·순수익 시각화":
         value_name="금액(원)"
     )
 
-    # 그룹 막대그래프 생성
     fig = px.bar(
         df_melted, 
         x="연도", 
@@ -145,9 +186,9 @@ elif page == "2. 수익·지출·순수익 시각화":
         barmode="group",
         title="연도별 수익, 지출 및 순수익 비교 추이",
         color_discrete_map={
-            "수익(매출액)": "#2b8cbe",  # 파란계열
-            "지출(운영비)": "#de2d26",  # 빨간계열
-            "순수익": "#31a354"          # 초록계열
+            "수익(매출액)": "#2b8cbe",
+            "지출(운영비)": "#de2d26",
+            "순수익": "#31a354"
         }
     )
     fig.update_layout(xaxis_title="운영 연도", yaxis_title="금액 (원)", legend_title="항목")
