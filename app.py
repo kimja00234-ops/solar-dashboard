@@ -127,28 +127,43 @@ with tab2:
   )
 
 # ---------------------------------------------------------
-# Tab 1: 사업 기본 정보 및 운영비 입력
+# Tab 1: 사업 기본 정보 및 운영비 입력 (빈값 입력 상태 반영)
 # ---------------------------------------------------------
 with tab1:
   st.subheader("📌 사업 기본 정보 및 발전 가정 입력")
 
   col1, col2 = st.columns(2)
   with col1:
+    # ✅ 사업명 (기본 빈값)
     project_name = st.text_input(
-        "사업명", value="춘천 창촌리 태양광발전사업"
+        "사업명", value="", placeholder="사업명을 입력하세요"
     )
-    capacity = st.number_input("설비용량 (kW)", value=986.21, format="%.2f")
-    land_area_str = st.text_input("부지면적 (㎡)", value="11,557")
+
+    # ✅ 설비용량 (기본 빈값)
+    capacity_val = st.number_input(
+        "설비용량 (kW)", value=None, format="%.2f", placeholder="0.00"
+    )
+    capacity = capacity_val if capacity_val is not None else 0.0
+
+    # ✅ 부지면적 (기본 빈값)
+    land_area_str = st.text_input(
+        "부지면적 (㎡)", value="", placeholder="예: 11,557"
+    )
     try:
-      land_area = float(land_area_str.replace(",", ""))
+      land_area = (
+          float(land_area_str.replace(",", "").strip())
+          if land_area_str.strip()
+          else 0.0
+      )
     except ValueError:
-      land_area = 11557.0
+      land_area = 0.0
 
   with col2:
-    location = st.text_input("위치", value="강원특별자치도 춘천시 남산면 창촌리")
+    # ✅ 위치 (기본 빈값)
+    location = st.text_input("위치", value="", placeholder="위치를 입력하세요")
 
     if "investment_input" not in st.session_state:
-      st.session_state.investment_input = "1,972,000,000"
+      st.session_state.investment_input = ""
 
     def update_investment():
       val = st.session_state.investment_widget.replace(",", "").strip()
@@ -157,22 +172,30 @@ with tab1:
       else:
         st.session_state.investment_input = val
 
+    # ✅ 총사업비 (기본 빈값)
     investment_str = st.text_input(
         "총사업비 (원)",
         value=st.session_state.investment_input,
         key="investment_widget",
         on_change=update_investment,
+        placeholder="예: 1,972,000,000",
     )
     try:
-      investment = (
-          int(investment_str.replace(",", "").strip())
-          if investment_str.replace(",", "").strip().isdigit()
-          else 0
-      )
+      clean_inv = investment_str.replace(",", "").strip()
+      investment = int(clean_inv) if clean_inv.isdigit() else 0
     except ValueError:
       investment = 0
 
-    years = st.number_input("사업기간 (년)", value=20, step=1)
+    # ✅ 사업기간 (기본 빈값)
+    years_val = st.number_input(
+        "사업기간 (년)",
+        value=None,
+        min_value=1,
+        max_value=50,
+        step=1,
+        placeholder="20",
+    )
+    years = int(years_val) if years_val is not None else 0
 
   st.divider()
 
@@ -245,7 +268,7 @@ with tab1:
       "운영비 세부 항목 및 비고를 확인하고 필요한 경우 금액을 수정해 주세요."
   )
 
-  # 감가상각비 및 감가상각비의 5% 수선유지비 산정
+  # 감가상각비 및 감가상각비의 5% 수선유지비 산정 (사업기간이 0일 경우 예외 처리)
   auto_depreciation = int(investment / years) if years > 0 else 0
   auto_maintenance = int(auto_depreciation * 0.05)
 
@@ -602,7 +625,9 @@ df_display = pd.concat([df_display, pd.DataFrame([sum_row])], ignore_index=True)
 # ---------------------------------------------------------
 with tab3:
   st.subheader("📊 연도별 분석 대시보드 (Sheet 3 구조 연동)")
-  st.markdown(f"### 📍 {project_name} ({location})")
+  title_name = project_name if project_name else "사업명 미입력"
+  title_loc = location if location else "위치 미입력"
+  st.markdown(f"### 📍 {title_name} ({title_loc})")
   st.caption(
       "세후 프로젝트 현금흐름: 매출액 - 현금운영비(대부료 포함) - 법인세 (감가상각비는"
       " 과세표준 산정에 반영)"
@@ -634,7 +659,7 @@ with tab3:
   )
 
   st.divider()
-  st.subheader("📋 20년간 연도별 현금흐름 분석 상세 테이블")
+  st.subheader("📋 연도별 현금흐름 분석 상세 테이블")
 
   # 서식 적용 함수 정의
   def format_cell(val, fmt="{:,.0f}"):
@@ -644,7 +669,6 @@ with tab3:
 
   st.dataframe(
       df_display.style.format({
-          # ✅ 발전량(kWh) 소수점 제거 (정수 서식 적용)
           "발전량(kWh)": lambda x: format_cell(x, "{:,.0f}"),
           "판매단가(원/kWh)": lambda x: format_cell(x, "{:,.1f}"),
           "매출액(원)": lambda x: format_cell(x, "{:,.0f}"),
